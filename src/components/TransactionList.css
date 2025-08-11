@@ -1,0 +1,62 @@
+.transaction-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 8px 8px; /* ריווח בין שורות ועמודות */
+  margin-top: 15px;
+  direction: rtl;
+  text-align: right;
+  font-family: "Arial", sans-serif;
+  font-size: 0.95rem;
+}
+
+.transaction-table th {
+  background-color: #f0f0f0;
+  padding: 12px;
+  border-bottom: 2px solid #ccc;
+  font-weight: bold;
+  border-radius: 6px;
+}
+
+.transaction-table td {
+  background-color: #fff;
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  vertical-align: middle;
+}
+
+/* הבדל קל בין שורות */
+.transaction-table tr:nth-child(even) td {
+  background-color: #fafafa;
+}
+
+/* ריווח בין עמודות - גבול פנימי */
+.transaction-table td,
+.transaction-table th {
+  border-left: 1px solid #e0e0e0;
+}
+
+/* כפתור מחיקה מעוצב */
+.delete-button {
+  background-color: #e53935;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: bold;
+  font-family: inherit;
+}
+
+.delete-button:hover {
+  background-color: #c62828;
+}
+
+.delete-button .icon {
+  font-size: 1.1em;
+}
