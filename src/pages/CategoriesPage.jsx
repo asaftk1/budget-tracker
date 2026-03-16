@@ -55,7 +55,7 @@ export default function CategoriesPage() {
   };
 
   return (
-    <div className="p-4">
+    <div dir = "rtl" className="p-4">
       <h2 className="text-xl font-bold mb-4">📁 הקטגוריות שלי</h2>
       <ul className="mb-4 space-y-2">
         {categories.map(cat => (

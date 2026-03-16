@@ -1,7 +1,12 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
-  "icons": [
+  "name": "Balance",
+  "short_name": "Balance",
+  "display": "standalone",
+  "scope": "/",
+  "start_url": "/login",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+   "icons": [
     {
       "src": "favicon.ico",
       "sizes": "64x64 32x32 24x24 16x16",
@@ -18,8 +23,7 @@
       "sizes": "512x512"
     }
   ],
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "shortcuts": [
+    { "name": "Open Balance", "short_name": "Open", "url": "/login" }
+  ]
 }

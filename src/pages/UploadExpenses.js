@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
 import { collection, addDoc, getDocs, Timestamp } from "firebase/firestore";
 import { db, auth } from "../firebase";
+import { deriveCategory, NOTE_NEEDS_REVIEW } from "../lib/categoryAssistant";
 
 const UploadExpenses = ({ onFinishUpload }) => {
   const [rows, setRows] = useState([]);
@@ -17,13 +18,23 @@ const UploadExpenses = ({ onFinishUpload }) => {
     fetchExisting();
   }, []);
 
+  const normalizeValue = (value) => String(value ?? "").trim().toLowerCase();
+
   const isDuplicate = (row) => {
+    const rowCategory = normalizeValue(row.category || row.merchant);
+    const rowAmount = Number(row.amount);
+    const rowDate = row.date instanceof Date && !isNaN(row.date.getTime()) ? row.date.toDateString() : null;
+
     return existingTransactions.some((t) => {
-      const tDate = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp);
+      const tDateObj = t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.timestamp);
+      const tDate = tDateObj instanceof Date && !isNaN(tDateObj.getTime()) ? tDateObj.toDateString() : null;
+      const tCategory = normalizeValue(t.category || t.merchant);
+      const tAmount = Number(t.amount);
+
       return (
-        t.amount === row.amount &&
-        t.category === row.category &&
-        tDate.toDateString() === row.date?.toDateString()
+        rowDate && tDate && rowDate === tDate &&
+        !Number.isNaN(rowAmount) && !Number.isNaN(tAmount) && rowAmount === tAmount &&
+        rowCategory === tCategory
       );
     });
   };
@@ -94,6 +105,7 @@ const UploadExpenses = ({ onFinishUpload }) => {
           amount,
           category,
           description,
+          merchant: description ? String(description).trim() : "",
           type,
         };
       }).filter(row => row.date || row.amount || row.category);
@@ -111,34 +123,66 @@ const UploadExpenses = ({ onFinishUpload }) => {
   };
 
   const handleImport = async () => {
-    setStatus("⬆️ מעלה נתונים...");
+  const handleImport = async () => {
+    setStatus("????? ??????...");
+    const user = auth.currentUser;
+    if (!user) {
+      setStatus("?????? ????? ??????? ??? ?????.");
+      return;
+    }
 
     let count = 0;
 
     for (const row of rows) {
-      if (!row.date || !row.amount || !row.category || row.isDuplicate) continue;
+      if (!row.date || row.isDuplicate) continue;
+
+      const merchant = String(row.merchant || row.description || row.category || "").trim();
+      const amountValue = Math.abs(Number(row.amount));
+      if (!merchant || !amountValue || Number.isNaN(amountValue)) continue;
+
+      let categorized;
+      try {
+        categorized = await deriveCategory({
+          statementCategory: row.category,
+          merchant,
+          amount: amountValue,
+          uid: user.uid,
+        });
+      } catch (err) {
+        console.warn("ML service failed during manual upload", err);
+        categorized = { category: merchant, autoCategory: null, source: "unknown", notes: NOTE_NEEDS_REVIEW };
+      }
 
       const transaction = {
-        type: row.type,
-        amount: row.amount,
-        category: row.category,
+        date: row.date.toISOString().split("T")[0],
         timestamp: Timestamp.fromDate(row.date),
-        userId: auth.currentUser.uid, // ✅ תוספת
+        merchant,
+        originalCategory: row.category || null,
+        category: categorized.category || merchant,
+        autoCategory: categorized.autoCategory ?? null,
+        categorizationSource: categorized.source || "manual",
+        notes: categorized.notes ?? null,
+        amount: amountValue,
+        type: row.type === "income" ? "?????" : "?????",
+        uid: user.uid,
       };
+
+      if (categorized.confidence !== undefined && categorized.confidence !== null) {
+        transaction.inferenceConfidence = categorized.confidence;
+      }
 
       try {
         await addDoc(collection(db, "transactions"), transaction);
-        count++;
+        count += 1;
       } catch (err) {
-        console.error("שגיאה בשמירה:", err);
+        console.error("????? ?????? ????", err, transaction);
       }
     }
 
-    setStatus(`✅ נוספו ${count} עסקאות חדשות`);
+    setStatus(`?????? ??????: ????? ${count} ??????`);
     setRows([]);
     if (onFinishUpload) onFinishUpload();
   };
-
   return (
     <div style={{ margin: "20px 0" }}>
       <h3>📤 ייבוא הוצאות מקובץ אשראי</h3>
@@ -194,3 +238,8 @@ const UploadExpenses = ({ onFinishUpload }) => {
 };
 
 export default UploadExpenses;
+
+
+
+
+

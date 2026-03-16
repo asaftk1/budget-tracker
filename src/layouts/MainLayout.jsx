@@ -6,13 +6,13 @@ import { useNavigate, NavLink } from 'react-router-dom';
 import { useState } from 'react';
 
 export default function MainLayout({ children }) {
-  const { user, signOut } = useAuth();
+  const { user, signOutUser } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = async () => {
-    await signOut();
-    navigate('/login');
+    await signOutUser();
+    navigate('/login'); 
   };
 
   return (

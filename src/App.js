@@ -1,56 +1,90 @@
-import Login from "./pages/Login"; // ודא שהקובץ קיים
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+
+import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import MainLayout from "./layouts/MainLayout";
-import TransactionsPage from './pages/TransactionsPage';
+import TransactionsPage from "./pages/TransactionsPage";
 import CategoriesPage from "./pages/CategoriesPage";
-import AnalyticsPage from './pages/AnalyticsPage';
+import AnalyticsPage from "./pages/AnalyticsPage";
 
-function App() {
+const auth = getAuth();
+
+function RequireAuth({ children }) {
+  const [user, setUser] = useState(undefined);
+  useEffect(() => onAuthStateChanged(auth, setUser), []);
+  if (user === undefined) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function PublicRoute({ children }) {
+  const [user, setUser] = useState(undefined);
+  useEffect(() => onAuthStateChanged(auth, setUser), []);
+  if (user === undefined) return null;
+  if (user) return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
+export default function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/" element={<Navigate to="/dashboard" />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
+
+        <Route path="/login" element={
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
+        } />
+
         <Route
           path="/dashboard"
           element={
-            <MainLayout>
-              <Dashboard />
-            </MainLayout>
+            <RequireAuth>
+              <MainLayout>
+                <Dashboard />
+              </MainLayout>
+            </RequireAuth>
           }
         />
+
         <Route
           path="/transactions"
           element={
-            <MainLayout>
-              <TransactionsPage />
-            </MainLayout>
+            <RequireAuth>
+              <MainLayout>
+                <TransactionsPage />
+              </MainLayout>
+            </RequireAuth>
           }
         />
+
         <Route
           path="/categories"
           element={
-            <MainLayout>
-              <CategoriesPage />
-            </MainLayout>
+            <RequireAuth>
+              <MainLayout>
+                <CategoriesPage />
+              </MainLayout>
+            </RequireAuth>
           }
         />
-        
 
         <Route
           path="/analytics"
           element={
-            <MainLayout>
-              <AnalyticsPage />
-            </MainLayout>
+            <RequireAuth>
+              <MainLayout>
+                <AnalyticsPage />
+              </MainLayout>
+            </RequireAuth>
           }
         />
 
-        {/* עמודים נוספים... */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>
   );
 }
-export default App;

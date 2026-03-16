@@ -1,46 +1,81 @@
-// src/contexts/AuthContext.js
-import { createContext, useContext, useEffect, useState } from 'react';
-import { auth, provider } from '../firebase';
-import { signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
+import { createContext, useContext, useEffect, useState } from "react";
+import {
+  getAuth,
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  signOut as fbSignOut,
+  setPersistence,
+  browserLocalPersistence,
+} from "firebase/auth";
+import { app } from "../firebase"; // make sure you export initialized app from firebase.js/ts
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  const signInWithGoogle = async () => {
-    try {
-      const result = await signInWithPopup(auth, provider);
-      setUser(result.user);
-    } catch (error) {
-      console.error('שגיאה בהתחברות עם גוגל:', error);
-    }
-  };
-
-  const signOut = async () => {
-    try {
-      await firebaseSignOut(auth);
-      setUser(null);
-    } catch (error) {
-      console.error('שגיאה בהתנתקות:', error);
-    }
-  };
+export function AuthProvider({ children }) {
+  const auth = getAuth(app);
+  const [user, setUser] = useState(undefined);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
+    // persist auth across refreshes
+    setPersistence(auth, browserLocalPersistence).catch(() => {});
+    return onAuthStateChanged(auth, async (u) => {
+      if (u) {
+        try { await u.reload(); } catch {}
+        setUser(u);
+      } else {
+        setUser(null);
+      }
     });
+  }, [auth]);
 
-    return () => unsubscribe();
-  }, []);
+  const signInWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    const res = await signInWithPopup(auth, provider);
+    return res.user;
+  };
 
-  return (
-    <AuthContext.Provider value={{ user, signInWithGoogle, signOut }}>
-      {!loading && children}
-    </AuthContext.Provider>
-  );
-};
+  const signUpWithEmail = async (email, password) => {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    await sendEmailVerification(cred.user);
+    // do NOT signOut here; let the user stay signed-in but not verified
+    return cred.user;
+  };
+
+  const signInWithEmail = async (email, password) => {
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    await cred.user.reload();
+    if (!cred.user.emailVerified) {
+      const e = new Error("Email not verified");
+      e.code = "auth/email-not-verified";
+      throw e;
+    }
+    return cred.user;
+  };
+
+  const resendVerification = async () => {
+    if (!auth.currentUser) throw new Error("auth/no-current-user");
+    await auth.currentUser.reload();
+    if (auth.currentUser.emailVerified) return true;
+    await sendEmailVerification(auth.currentUser);
+    return true;
+  };
+
+  const signOutUser = () => fbSignOut(auth);
+
+  const value = {
+    user,
+    signInWithGoogle,
+    signInWithEmail,
+    signUpWithEmail,
+    resendVerification,
+    signOutUser,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
 
 export const useAuth = () => useContext(AuthContext);
