@@ -12,13 +12,13 @@ export const CATEGORY_SOURCE_LABELS = {
 const EMPTY_CATEGORY_VALUES = new Set([
   '',
   '-',
-  '—',
+  'â€”',
   'n/a',
   'not available',
   'uncategorized',
-  'לא מסווג',
-  'ללא',
-  'ללא קטגוריה',
+  '×œ× ×ž×¡×•×•×’',
+  '×œ×œ×',
+  '×œ×œ× ×§×˜×’×•×¨×™×”',
 ]);
 
 const clean = (value = '') => String(value ?? '').trim();
