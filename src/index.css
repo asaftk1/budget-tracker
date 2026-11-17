@@ -1,3 +1,40 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Design tokens (direction A, light theme). Colours are RGB channels so Tailwind can add alpha.
+   A dark theme can be added later by redefining these variables under a selector; no component
+   needs to change. */
+@layer base {
+  :root {
+    color-scheme: light;
+
+    --canvas: 246 247 245; /* #f6f7f5 page background */
+    --background: 255 255 255; /* #ffffff field and surface background */
+    --card: 255 255 255;
+    --card-foreground: 20 32 26;
+    --foreground: 20 32 26; /* #14201a body text */
+    --muted: 238 241 236; /* #eef1ec subtle fills */
+    --muted-foreground: 75 85 99; /* #4b5563 secondary text, 7:1 on white */
+    --border: 228 231 226; /* #e4e7e2 hairlines */
+    --input: 124 135 127; /* #7c877f control borders, 3.7:1 on white */
+
+    --primary: 21 128 61; /* #15803d, 5.0:1 on white */
+    --primary-hover: 22 101 52; /* #166534 */
+    --primary-soft: 240 253 244; /* #f0fdf4 */
+    --primary-foreground: 255 255 255;
+
+    --income: 15 118 110; /* #0f766e teal, 5.5:1 on white */
+    --expense: 194 65 12; /* #c2410c vermilion, 5.2:1 on white */
+    --danger: 185 28 28; /* #b91c1c, 6.5:1 on white */
+    --ring: 21 128 61;
+
+    --radius-control: 0.625rem; /* 10px */
+    --radius-card: 1rem; /* 16px */
+    --radius-dialog: 1.25rem; /* 20px */
+  }
+
+  body {
+    @apply bg-canvas font-sans text-foreground antialiased;
+  }
+}
