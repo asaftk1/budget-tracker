@@ -10,6 +10,8 @@ export const CardHeader = ({ className, ...props }) => (
 );
 
 export const CardTitle = ({ className, ...props }) => (
+  // Content arrives through props (children); the linter cannot see it through the spread.
+  // eslint-disable-next-line jsx-a11y/heading-has-content
   <h3 className={cn("text-2xl font-semibold leading-none tracking-tight", className)} {...props} />
 );
 

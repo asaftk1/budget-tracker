@@ -56,19 +56,19 @@ export function parseExcelDate(value) {
   if (typeof value === 'string') {
     const str = value.trim();
 
-    let m = str.match(/^(\d{2})[\/\-.](\d{2})[\/\-.](\d{4})$/);
+    let m = str.match(/^(\d{2})[/\-.](\d{2})[/\-.](\d{4})$/);
     if (m) {
       const [, day, month, year] = m;
       return `${year}-${month}-${day}`;
     }
 
-    m = str.match(/^(\d{4})[\/\-.](\d{2})[\/\-.](\d{2})$/);
+    m = str.match(/^(\d{4})[/\-.](\d{2})[/\-.](\d{2})$/);
     if (m) {
       const [, year, month, day] = m;
       return `${year}-${month}-${day}`;
     }
 
-    m = str.match(/^(\d{2})[\/\-.](\d{2})[\/\-.](\d{2})$/);
+    m = str.match(/^(\d{2})[/\-.](\d{2})[/\-.](\d{2})$/);
     if (m) {
       const [, day, month, year] = m;
       const fullYear = Number(year) >= 70 ? `19${year}` : `20${year}`;

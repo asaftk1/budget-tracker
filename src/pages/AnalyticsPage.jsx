@@ -6,7 +6,6 @@ import { getAuth } from 'firebase/auth';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
 import { Input } from '../components/ui/input';
-import dayjs from 'dayjs';
 import { fromAgorot, formatMoney } from '../lib/money';
 import { summarizeTransactions } from '../lib/summaries';
 import { CHART_COLORS } from '../constants';

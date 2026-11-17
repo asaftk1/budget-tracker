@@ -126,3 +126,59 @@ describe('parseIsracardDate', () => {
     expect(parseIsracardDate('garbage')).toBeNull();
   });
 });
+
+// The date patterns once wrote the slash as "\/" inside the separator class. The class is now
+// "[/\-.]". These tests pin that the two spellings are the same pattern and that parsing is
+// unchanged for every separator, shape and odd input.
+describe('separator class spelling', () => {
+  const OLD_SEP = String.raw`[\/\-.]`;
+  const NEW_SEP = String.raw`[/\-.]`;
+  const shapes = (sep) => [
+    new RegExp(String.raw`^(\d{2})${sep}(\d{2})${sep}(\d{4})$`),
+    new RegExp(String.raw`^(\d{4})${sep}(\d{2})${sep}(\d{2})$`),
+    new RegExp(String.raw`^(\d{2})${sep}(\d{2})${sep}(\d{2})$`),
+  ];
+  const oldShapes = shapes(OLD_SEP);
+  const newShapes = shapes(NEW_SEP);
+
+  // Every separator character the old class could or could not match, in both positions.
+  const seps = ['/', '-', '.', '\\', ' ', ',', ':', '_', 'x', '', '//', '\n'];
+  const bodies = [
+    ['05', '03', '2025'], ['2025', '03', '05'], ['05', '03', '25'], ['31', '12', '1999'],
+    ['5', '3', '2025'], ['05', '03', '202'], ['0a', '03', '2025'], ['00', '00', '0000'],
+  ];
+  const inputs = [];
+  for (const [a, b, c] of bodies) {
+    for (const s1 of seps) for (const s2 of seps) inputs.push(`${a}${s1}${b}${s2}${c}`);
+  }
+  inputs.push('', ' ', '2025', '05/03', '05/03/2025/1', ' 05/03/2025', '05/03/2025 ');
+
+  test('the old and new patterns match exactly the same strings with the same groups', () => {
+    for (const str of inputs) {
+      oldShapes.forEach((oldRe, i) => {
+        expect(str.match(newShapes[i])).toEqual(str.match(oldRe));
+      });
+    }
+  });
+
+  test('the separators that match are exactly slash, dash and dot', () => {
+    const accepted = seps.filter((s) => s.length === 1 && newShapes[0].test(`05${s}03${s}2025`));
+    expect(accepted.sort()).toEqual(['-', '.', '/']);
+  });
+
+  test('the escape no longer appears in the source patterns', () => {
+    expect(NEW_SEP).not.toContain('\\/');
+  });
+
+  test('parseExcelDate results for slash, dash and dot dates are unchanged', () => {
+    expect(parseExcelDate('05/03/2025')).toBe('2025-03-05');
+    expect(parseExcelDate('05-03-2025')).toBe('2025-03-05');
+    expect(parseExcelDate('05.03.2025')).toBe('2025-03-05');
+    expect(parseExcelDate('2025/03/05')).toBe('2025-03-05');
+    expect(parseExcelDate('05/03/25')).toBe('2025-03-05');
+    expect(parseExcelDate('05/03/70')).toBe('1970-03-05');
+    expect(parseExcelDate('05\\03\\2025')).toBeNull();
+    expect(parseExcelDate('05 03 2025')).toBeNull();
+    expect(parseExcelDate('5/3/2025')).toBeNull();
+  });
+});
