@@ -25,9 +25,8 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import * as XLSX from 'xlsx';
 import dayjs from 'dayjs';
 import 'dayjs/locale/he';
-import { getLastDayOfPreviousMonth, computeIsracardChargeDate, parseExcelDate, parseIsracardDate } from '../lib/importDates';
-import { cleanAmount } from '../lib/amounts';
-import { categorizeMerchant, normalizeMerchantName } from '../lib/categorize';
+import { normalizeMerchantName } from '../lib/categorize';
+import { parseIsracardSheet, parseMaxSheet } from '../lib/statementParsers';
 import { buildTransactionId, chunk, MAX_BATCH_SIZE } from '../lib/transactionId';
 
 dayjs.locale('he');
@@ -52,17 +51,6 @@ export default function TransactionsPage() {
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
   const normalizeCategory = (cat) => (cat || '').trim().toLowerCase();
-
-  const extractBillingDate = (rows, regex) => {
-    for (const row of rows) {
-      for (const cell of row || []) {
-        if (typeof cell !== 'string') continue;
-        const m = cell.match(regex);
-        if (m) return m[1] ?? m[0];
-      }
-    }
-    return null;
-  };
 
   const loadMerchantCategoryMap = async (uid) => {
     const map = new Map();
@@ -173,6 +161,26 @@ export default function TransactionsPage() {
     return acc;
   }, {});
 
+  // Maps parser warning codes to console messages.
+  const warnImport = (code, detail) => {
+    switch (code) {
+      case 'isracard-missing-header':
+        console.warn('לא נמצא חודש חיוב בכותרת של ישראכרט');
+        break;
+      case 'isracard-invalid-header':
+        console.warn('כותרת חודש/שנה לא תקינה בישראכרט:', detail);
+        break;
+      case 'isracard-no-posting-date':
+        console.warn('לא הצלחנו לחשב תאריך שיוך לישראכרט:', detail);
+        break;
+      case 'max-no-posting-date':
+        console.warn('⚠️ לא הצלחנו לחשב תאריך שיוך ל-MAX:', detail);
+        break;
+      default:
+        break;
+    }
+  };
+
   const handleFileSelection = (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -209,160 +217,26 @@ export default function TransactionsPage() {
 
         if (json.length < 2) continue;
 
+        let parsed = [];
         if (cardType === 'isracard') {
-          const hebrewMonths = {
-            'ינואר': 1, 'פברואר': 2, 'מרץ': 3, 'אפריל': 4,
-            'מאי': 5, 'יוני': 6, 'יולי': 7, 'אוגוסט': 8,
-            'ספטמבר': 9, 'אוקטובר': 10, 'נובמבר': 11, 'דצמבר': 12
-          };
-
-          let headerCell = null;
-          for (let r = 0; r < Math.min(6, json.length) && !headerCell; r++) {
-            const row = json[r] || [];
-            for (let c = 0; c < Math.min(8, row.length); c++) {
-              const cell = row[c];
-              if (typeof cell === 'string') {
-                const parts = cell.trim().split(/\s+/);
-                if (parts.length >= 2 && hebrewMonths[parts[0]] && /^\d{4}$/.test(parts[1])) {
-                  headerCell = cell.trim();
-                  break;
-                }
-              }
-            }
-          }
-
-          if (!headerCell) {
-            console.warn('לא נמצא חודש חיוב בכותרת של ישראכרט');
-            continue;
-          }
-
-          const [hebrewMonth, yearStr] = headerCell.split(/\s+/);
-          const headerMonth = hebrewMonths[hebrewMonth];
-          const headerYear = parseInt(yearStr, 10);
-
-          if (!headerMonth || !headerYear) {
-            console.warn('כותרת חודש/שנה לא תקינה בישראכרט:', headerCell);
-            continue;
-          }
-
-          const billingStr = extractBillingDate(json.slice(0, 6), /לחיוב ב-(\d{2}\.\d{2})/);
-
-          const chargeDateStr = computeIsracardChargeDate({ headerYear, headerMonth, billingStr });
-          const postingDate = getLastDayOfPreviousMonth(chargeDateStr);
-          if (!postingDate) {
-            console.warn('לא הצלחנו לחשב תאריך שיוך לישראכרט:', chargeDateStr);
-            continue;
-          }
-
-          const indexes = { date: 0, merchant: 1, amount: 4 };
-          const dataRows = json.slice(9);
-
-          for (const [rowIndex, row] of dataRows.entries()) {
-            const rawDate = row[indexes.date];
-            const rawMerchant = row[indexes.merchant];
-            const rawAmount = row[indexes.amount];
-
-            const looksLikeDate =
-              typeof rawDate === 'string' &&
-              /^\d{2}[./]\d{2}[./]\d{2,4}$/.test(rawDate.trim());
-
-            if (!looksLikeDate) continue;
-
-            const merchant = rawMerchant ? String(rawMerchant).trim() : '';
-            const amountNum = cleanAmount(rawAmount);
-            const parsedOriginalDate = parseIsracardDate(rawDate);
-
-            if (!merchant || amountNum === null) continue;
-
-            const category = categorizeMerchant(merchant, merchantCategoryMap) || '';
-
-            const transaction = {
-              date: postingDate,
-              originalDate: parsedOriginalDate || null,
-              chargeDate: chargeDateStr,
-              merchant,
-              category,
-              amount: Math.abs(amountNum),
-              type: amountNum > 0 ? 'הוצאה' : 'הכנסה',
-              uid: user.uid,
-              source: 'isracard',
-              ...(category ? {} : { notes: 'השלם קטגוריה ידנית' }),
-            };
-
-            pending.push({
-              id: buildTransactionId({
-                uid: user.uid,
-                source: transaction.source,
-                date: transaction.date,
-                merchant: transaction.merchant,
-                amount: transaction.amount,
-                rowKey: `${sheetName}#${rowIndex}`,
-              }),
-              data: transaction,
-            });
-          }
+          parsed = parseIsracardSheet(json, { merchantCategoryMap, onWarn: warnImport });
         } else if (cardType === 'max') {
-          // בקובץ MAX השורה הרביעית היא כותרות, לכן הנתונים מתחילים באינדקס 4
-          const dataRows = json.slice(4);
+          parsed = parseMaxSheet(json, { onWarn: warnImport });
+        }
 
-          for (const [rowIndex, row] of dataRows.entries()) {
-            const rawTransactionDate = row[0];
-            const rawMerchant = row[1];
-            const rawCategory = row[2];
-            const rawAmount = row[5];
-            const rawChargeDate = row[9];
-
-            // דילוג על שורות ריקות / שורות שאינן עסקאות
-            if (
-              !rawMerchant ||
-              rawAmount === undefined ||
-              rawAmount === null ||
-              rawAmount === '' ||
-              !rawChargeDate
-            ) {
-              continue;
-            }
-
-            const merchant = String(rawMerchant).trim();
-            const category = typeof rawCategory === 'string' ? rawCategory.trim() : '';
-            const amountNum = cleanAmount(rawAmount);
-            const parsedChargeDate = parseExcelDate(rawChargeDate);
-            const parsedOriginalDate = parseExcelDate(rawTransactionDate);
-
-            if (!merchant || amountNum === null || !parsedChargeDate) {
-              continue;
-            }
-
-            const postingDate = getLastDayOfPreviousMonth(parsedChargeDate);
-            if (!postingDate) {
-              console.warn('⚠️ לא הצלחנו לחשב תאריך שיוך ל-MAX:', { rawChargeDate, parsedChargeDate, merchant });
-              continue;
-            }
-
-            const transaction = {
-              date: postingDate,
-              originalDate: parsedOriginalDate || null,
-              chargeDate: parsedChargeDate,
-              merchant,
-              category,
-              amount: Math.abs(amountNum),
-              type: amountNum > 0 ? 'הוצאה' : 'הכנסה',
+        for (const { rowIndex, transaction } of parsed) {
+          const docData = { ...transaction, uid: user.uid };
+          pending.push({
+            id: buildTransactionId({
               uid: user.uid,
-              source: 'max'
-            };
-
-            pending.push({
-              id: buildTransactionId({
-                uid: user.uid,
-                source: transaction.source,
-                date: transaction.date,
-                merchant: transaction.merchant,
-                amount: transaction.amount,
-                rowKey: `${sheetName}#${rowIndex}`,
-              }),
-              data: transaction,
-            });
-          }
+              source: docData.source,
+              date: docData.date,
+              merchant: docData.merchant,
+              amount: docData.amount,
+              rowKey: `${sheetName}#${rowIndex}`,
+            }),
+            data: docData,
+          });
         }
       }
 
