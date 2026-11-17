@@ -10,7 +10,7 @@ const BIG_ONE_MIN_AGOROT = 500 * 100;
 
 const wholeShekels = (agorot) => formatMoney(agorot, { fractionDigits: 0 });
 
-// עזר: קיבוץ לפי חודש YYYY-MM
+// Month key YYYY-MM ("unknown" for an invalid date).
 function byMonth(dateStr) {
   const d = dayjs(dateStr);
   return d.isValid() ? d.format("YYYY-MM") : "unknown";
@@ -20,6 +20,57 @@ function normalize(str = "") {
   return String(str).trim().toLowerCase();
 }
 
+// A charge counts as recurring only if it shows up in this many different months...
+const SUBSCRIPTION_MIN_MONTHS = 3;
+// ...with monthly totals within 10% of the typical (median) month, but never tighter than 5 ILS,
+// so small subscriptions that change price slightly still count.
+const SIMILAR_AMOUNT_RATIO = 0.1;
+const SIMILAR_AMOUNT_MIN_AGOROT = 5 * 100;
+
+const median = (sortedNumbers) => {
+  const mid = Math.floor(sortedNumbers.length / 2);
+  return sortedNumbers.length % 2 ? sortedNumbers[mid] : (sortedNumbers[mid - 1] + sortedNumbers[mid]) / 2;
+};
+
+// Find merchants billed in a similar amount in several different months.
+// Transactions are grouped by merchant; those without a merchant (manual entries) fall back to
+// their category. Returns [{ label, avgAgorot, months }] for each recurring charge.
+export function findRecurringCharges(expenses) {
+  const groups = new Map(); // key -> { label, monthTotals: { "YYYY-MM": agorot } }
+
+  for (const t of expenses) {
+    const month = byMonth(t.date);
+    if (month === "unknown") continue;
+
+    const key = normalize(t.merchant) || normalize(t.category);
+    if (!key) continue;
+
+    if (!groups.has(key)) {
+      groups.set(key, { label: String(t.merchant || t.category).trim(), monthTotals: {} });
+    }
+    const totals = groups.get(key).monthTotals;
+    totals[month] = (totals[month] || 0) + getAgorot(t);
+  }
+
+  const result = [];
+  for (const { label, monthTotals } of groups.values()) {
+    const amounts = Object.values(monthTotals).filter((v) => v > 0);
+    if (amounts.length < SUBSCRIPTION_MIN_MONTHS) continue;
+
+    const typical = median([...amounts].sort((x, y) => x - y));
+    const tolerance = Math.max(typical * SIMILAR_AMOUNT_RATIO, SIMILAR_AMOUNT_MIN_AGOROT);
+    const similar = amounts.filter((v) => Math.abs(v - typical) <= tolerance);
+    if (similar.length < SUBSCRIPTION_MIN_MONTHS) continue;
+
+    result.push({
+      label,
+      avgAgorot: similar.reduce((sum, v) => sum + v, 0) / similar.length,
+      months: similar.length,
+    });
+  }
+  return result;
+}
+
 // Pure computation behind the hook, exported for tests.
 export function buildSuggestions(transactions = []) {
     if (!transactions.length) return [];
@@ -27,35 +78,18 @@ export function buildSuggestions(transactions = []) {
     // רק הוצאות
     const expenses = transactions.filter(t => t.type === TYPE.EXPENSE);
 
-    // 1) זיהוי חיובים חוזרים (מנויים/סבסקריפשנים)
-    const byMerchant = {};
-    for (const t of expenses) {
-      const key = normalize(t.category); // אם יש לך merchant ממש – החלף לכאן
-      if (!byMerchant[key]) byMerchant[key] = [];
-      byMerchant[key].push(t);
-    }
-    const recurring = Object.entries(byMerchant)
-      .filter(([_, arr]) => {
-        // הופיע לפחות 3 חודשים שונים
-        const months = new Set(arr.map(a => byMonth(a.date)));
-        return months.size >= 3;
-      })
-      .map(([merchant, arr]) => {
-        const perMonth = {};
-        for (const a of arr) {
-          const m = byMonth(a.date);
-          perMonth[m] = (perMonth[m] || 0) + getAgorot(a);
-        }
-        const avgAgorot = Object.values(perMonth).reduce((s, v) => s + v, 0) / Object.keys(perMonth).length;
-        const avg = fromAgorot(avgAgorot);
-        return {
-          kind: "subscription",
-          score: Math.min(100, Math.round(avg)), // דירוג גס לפי גודל חודשי
-          title: `נראה שיש חיוב קבוע ב"${merchant}"`,
-          detail: `ממוצע חודשי ~ ${wholeShekels(avgAgorot)}. שווה לבדוק אם אפשר לבטל/להוזיל.`,
-          meta: { merchant, avgMonthly: avg }
-        };
-      });
+    // 1) Recurring charges (subscriptions): the same merchant billed a similar amount in
+    //    at least SUBSCRIPTION_MIN_MONTHS different months.
+    const recurring = findRecurringCharges(expenses).map(({ label, avgAgorot }) => {
+      const avg = fromAgorot(avgAgorot);
+      return {
+        kind: "subscription",
+        score: Math.min(100, Math.round(avg)), // rough ranking by monthly size
+        title: `נראה שיש חיוב קבוע ב"${label}"`,
+        detail: `ממוצע חודשי ~ ${wholeShekels(avgAgorot)}. שווה לבדוק אם אפשר לבטל/להוזיל.`,
+        meta: { merchant: label, avgMonthly: avg }
+      };
+    });
 
     // 2) עליה חריגה בקטגוריה חודשית (MoM)
     const byCatMonth = {};
