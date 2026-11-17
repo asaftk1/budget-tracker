@@ -9,6 +9,7 @@ import {
   doc,
   updateDoc,
   setDoc,
+  writeBatch,
   getDocs,
   query,
   where
@@ -26,6 +27,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/he';
 import { getLastDayOfPreviousMonth, computeIsracardChargeDate } from '../lib/importDates';
 import { categorizeMerchant, normalizeMerchantName } from '../lib/categorize';
+import { buildTransactionId, chunk, MAX_BATCH_SIZE } from '../lib/transactionId';
 
 dayjs.locale('he');
 
@@ -274,6 +276,8 @@ export default function TransactionsPage() {
       const workbook = XLSX.read(data, { type: 'binary' });
 
       let total = 0;
+      // Transactions to write, collected across all sheets: { id, data }.
+      const pending = [];
       const merchantCategoryMap = await loadMerchantCategoryMap(user.uid);
 
       for (const sheetName of workbook.SheetNames) {
@@ -330,7 +334,7 @@ export default function TransactionsPage() {
           const indexes = { date: 0, merchant: 1, amount: 4 };
           const dataRows = json.slice(9);
 
-          for (const row of dataRows) {
+          for (const [rowIndex, row] of dataRows.entries()) {
             const rawDate = row[indexes.date];
             const rawMerchant = row[indexes.merchant];
             const rawAmount = row[indexes.amount];
@@ -362,20 +366,23 @@ export default function TransactionsPage() {
               ...(category ? {} : { notes: 'השלם קטגוריה ידנית' }),
             };
 
-            try {
-              await addDoc(collection(db, 'transactions'), transaction);
-
-              console.log('✅ פעולה הוספה:', transaction);
-              total++;
-            } catch (error) {
-              console.error('שגיאה בהוספה ל-Firestore (ישראכרט):', error);
-            }
+            pending.push({
+              id: buildTransactionId({
+                uid: user.uid,
+                source: transaction.source,
+                date: transaction.date,
+                merchant: transaction.merchant,
+                amount: transaction.amount,
+                rowKey: `${sheetName}#${rowIndex}`,
+              }),
+              data: transaction,
+            });
           }
         } else if (cardType === 'max') {
           // בקובץ MAX השורה הרביעית היא כותרות, לכן הנתונים מתחילים באינדקס 4
           const dataRows = json.slice(4);
 
-          for (const row of dataRows) {
+          for (const [rowIndex, row] of dataRows.entries()) {
             const rawTransactionDate = row[0];
             const rawMerchant = row[1];
             const rawCategory = row[2];
@@ -421,15 +428,31 @@ export default function TransactionsPage() {
               source: 'max'
             };
 
-            try {
-              await addDoc(collection(db, 'transactions'), transaction);
-
-              console.log('✅ פעולה הוספה:', transaction);
-              total++;
-            } catch (error) {
-              console.error('❌ שגיאה בהוספה ל־Firestore:', error);
-            }
+            pending.push({
+              id: buildTransactionId({
+                uid: user.uid,
+                source: transaction.source,
+                date: transaction.date,
+                merchant: transaction.merchant,
+                amount: transaction.amount,
+                rowKey: `${sheetName}#${rowIndex}`,
+              }),
+              data: transaction,
+            });
           }
+        }
+      }
+
+      // Deterministic ids: re-importing the same file overwrites the same documents.
+      // Every document carries uid === the signed-in user, as firestore.rules requires.
+      for (const group of chunk(pending, MAX_BATCH_SIZE)) {
+        const batch = writeBatch(db);
+        group.forEach(({ id, data }) => batch.set(doc(db, 'transactions', id), data));
+        try {
+          await batch.commit();
+          total += group.length;
+        } catch (error) {
+          console.error('Firestore batch write failed:', error);
         }
       }
 

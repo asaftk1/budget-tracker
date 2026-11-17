@@ -129,6 +129,66 @@ describe('merchantCategories document id prefix', () => {
     assertFails(create(`${OWNER}2_shop`, OWNER)));
 });
 
+// The importer writes imported transactions with deterministic ids via writeBatch + set().
+describe('transactions bulk import writes (deterministic ids, batched set)', () => {
+  const tx = (uid, extra = {}) => ({ uid, date: '2025-02-28', type: 'expense', amount: 10, source: 'max', ...extra });
+  const col = (db) => db.collection('transactions');
+
+  it('set on a new deterministic id is allowed (create)', async () =>
+    assertSucceeds(col(verified(OWNER)).doc('max_newid').set(tx(OWNER))));
+
+  it('set again on the same id is allowed (re-import overwrites as an update)', async () => {
+    const db = verified(OWNER);
+    await assertSucceeds(col(db).doc('max_newid').set(tx(OWNER)));
+    await assertSucceeds(col(db).doc('max_newid').set(tx(OWNER, { amount: 11 })));
+  });
+
+  it('set over another user\'s document id is denied', async () =>
+    assertFails(col(verified(OTHER)).doc('tx1').set(tx(OTHER))));
+
+  it('set over own document cannot change the uid', async () =>
+    assertFails(col(verified(OWNER)).doc('tx1').set(tx(OTHER))));
+
+  it('set without a uid field is denied', async () =>
+    assertFails(col(verified(OWNER)).doc('max_nouid').set({ amount: 1 })));
+
+  it('a batch mixing creates and overwrites of own documents is allowed', async () => {
+    const db = verified(OWNER);
+    const batch = db.batch();
+    batch.set(col(db).doc('max_a'), tx(OWNER));
+    batch.set(col(db).doc('max_b'), tx(OWNER));
+    batch.set(col(db).doc('tx1'), tx(OWNER, { amount: 99 }));
+    await assertSucceeds(batch.commit());
+  });
+
+  it('a full batch of 500 writes is allowed', async () => {
+    const db = verified(OWNER);
+    const batch = db.batch();
+    for (let i = 0; i < 500; i += 1) batch.set(col(db).doc(`max_bulk${i}`), tx(OWNER));
+    await assertSucceeds(batch.commit());
+  });
+
+  it('a batch containing one foreign-uid document is rejected as a whole', async () => {
+    const db = verified(OWNER);
+    const batch = db.batch();
+    batch.set(col(db).doc('max_ok'), tx(OWNER));
+    batch.set(col(db).doc('max_bad'), tx(OTHER));
+    await assertFails(batch.commit());
+    // Nothing from the failed batch was written.
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const snap = await ctx.firestore().collection('transactions').doc('max_ok').get();
+      if (snap.exists) throw new Error('partial batch was written');
+    });
+  });
+
+  it('an unverified user cannot batch-write', async () => {
+    const db = unverified(OWNER);
+    const batch = db.batch();
+    batch.set(col(db).doc('max_unv'), tx(OWNER));
+    await assertFails(batch.commit());
+  });
+});
+
 describe('catch-all', () => {
   it('denies access to collections that are not listed', async () => {
     const db = verified(OWNER);
