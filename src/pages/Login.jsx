@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { authErrorMessage } from "../lib/authErrors";
 
 export default function Login() {
   const { user, signInWithGoogle, signInWithEmail, signUpWithEmail, resendVerification } = useAuth();
@@ -36,12 +37,19 @@ export default function Login() {
         navigate("/dashboard");
       }
     } catch (err) {
-      if (err?.code === "auth/email-not-verified") {
-        setNeedsVerification(true);
-        setError("האימייל טרם אומת. אשר/י את הכתובת דרך המייל שנשלח אליך ואז התחבר/י שוב.");
-      } else {
-        setError("Invalid email, password, or unverified account");
-      }
+      if (err?.code === "auth/email-not-verified") setNeedsVerification(true);
+      setError(authErrorMessage(err) || "");
+    }
+  };
+
+  const handleGoogle = async () => {
+    try {
+      setError("");
+      setInfo("");
+      await signInWithGoogle();
+    } catch (err) {
+      // A closed popup maps to null: no message.
+      setError(authErrorMessage(err) || "");
     }
   };
 
@@ -106,7 +114,7 @@ export default function Login() {
 
         <hr className="my-4" />
 
-        <Button type="button" onClick={signInWithGoogle} className="w-full bg-green-600 hover:bg-green-700 text-white">
+        <Button type="button" onClick={handleGoogle} className="w-full bg-green-600 hover:bg-green-700 text-white">
           התחבר באמצעות Google
         </Button>
       </div>

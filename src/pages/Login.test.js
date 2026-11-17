@@ -112,4 +112,38 @@ describe('Login form', () => {
     expect(auth.signInWithEmail).toHaveBeenCalledTimes(1);
     expect(document.body.querySelector('[role=status]')).not.toBeNull();
   });
+
+  const errorText = () => document.body.querySelector('[role=alert]')?.textContent;
+  const reject = (fn, code) => fn.mockRejectedValue(Object.assign(new Error('x'), { code }));
+
+  test('wrong credentials show a Hebrew message and no alert() is used', async () => {
+    window.alert = jest.fn();
+    reject(auth.signInWithEmail, 'auth/invalid-credential');
+    await renderLogin();
+    await submit(document.body.querySelector('form'));
+    expect(errorText()).toBe('אימייל או סיסמה שגויים.');
+    expect(window.alert).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  test('too many requests has its own message', async () => {
+    reject(auth.signInWithEmail, 'auth/too-many-requests');
+    await renderLogin();
+    await submit(document.body.querySelector('form'));
+    expect(errorText()).toContain('יותר מדי ניסיונות');
+  });
+
+  test('a failed Google sign-in is caught and shown inline', async () => {
+    reject(auth.signInWithGoogle, 'auth/popup-blocked');
+    await renderLogin();
+    await click(byText('Google'));
+    expect(errorText()).toContain('Google');
+  });
+
+  test('closing the Google popup shows no error', async () => {
+    reject(auth.signInWithGoogle, 'auth/popup-closed-by-user');
+    await renderLogin();
+    await click(byText('Google'));
+    expect(document.body.querySelector('[role=alert]')).toBeNull();
+  });
 });
