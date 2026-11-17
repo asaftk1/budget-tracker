@@ -25,6 +25,7 @@ import * as XLSX from 'xlsx';
 import dayjs from 'dayjs';
 import 'dayjs/locale/he';
 import { getLastDayOfPreviousMonth, computeIsracardChargeDate } from '../lib/importDates';
+import { categorizeMerchant, normalizeMerchantName } from '../lib/categorize';
 
 dayjs.locale('he');
 
@@ -48,7 +49,6 @@ export default function TransactionsPage() {
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
   const normalizeCategory = (cat) => (cat || '').trim().toLowerCase();
-  const normalizeMerchantName = (name) => (name || '').trim().toLowerCase();
 
   const extractBillingDate = (rows, regex) => {
     for (const row of rows) {
@@ -137,41 +137,6 @@ export default function TransactionsPage() {
     }
 
     return parseExcelDate(str);
-  };
-
-  const inferCategoryFromMerchant = (merchant, merchantCategoryMap) => {
-    const normalized = normalizeMerchantName(merchant);
-    if (!normalized) return '';
-
-    // קודם נסה חוקים מובנים
-    const rules = [
-      { keywords: ['שופרסל', 'רמי לוי', 'ויקטורי', 'יוחננוף', 'קרפור', 'מחסני השוק', 'אושר עד', 'טיב טעם', 'סיטי מרקט', 'מגה', 'יש בשכונה'], category: 'מזון וצריכה' },
-      { keywords: ['סופר פארם', 'סופר-פארם', 'superpharm', 'גוד פארם', 'pharm', 'בית מרקחת', 'רוקח'], category: 'פארם וטיפוח' },
-      { keywords: ['פז', 'דור אלון', 'סונול', 'דלק', 'yellow', 'ten', 'טן', 'אקסון', 'חניון', 'קנגורו'], category: 'דלק ורכב' },
-      { keywords: ['ארומה', 'מקדונלד', 'מקדונלס', 'בורגר', 'קפה', 'מסעד', 'רולדין', 'greg', 'גרג', 'פיצה', 'סושי', 'שווארמה', 'פלאפל', 'מאפייה', 'בית קפה', 'שוק', 'אוכל', 'wolt', 'וולט', 'טעים', 'ברבהר', 'נונה'], category: 'מסעדות ובתי קפה' },
-      { keywords: ['fox', 'zara', 'hm', 'h&m', 'castro', 'terminal x', 'טרמינל', 'מנגו', 'pull', 'bear', 'להב', 'bbw', 'victorias'], category: 'ביגוד והנעלה' },
-      { keywords: ['אייבורי', 'ksp', 'מחסני חשמל', 'באג', 'bug', 'ivory', 'apple', 'samsung', 'אפל'], category: 'חשמל ואלקטרוניקה' },
-      { keywords: ['אגד', 'רכבת', 'דן', 'gett', 'yango', 'פנגו', 'cellopark', 'מונית', 'אוטובוס'], category: 'תחבורה' },
-      { keywords: ['בזק', 'סלקום', 'פרטנר', 'הוט', 'yes', ' 012', 'רשת'], category: 'תקשורת' },
-      { keywords: ['חשמל', 'מים', 'ארנונה', 'גז', 'ועד בית'], category: 'חשבונות' },
-      { keywords: ['ביטוח', 'מגדל', 'הראל', 'כלל', 'מנורה', 'איי.די.איי', 'ישיר'], category: 'ביטוח' },
-      { keywords: ['בנק', 'העברה', 'bit', 'ביט', 'paybox', 'פייבוקס'], category: 'העברות כספים' },
-      { keywords: ['netflix', 'spotify', 'disney', 'apple tv', 'youtube', 'openai', 'chatgpt', 'google', 'amazon', 'prime', 'patreon'], category: 'מנויים דיגיטליים' },
-      { keywords: ['סופר פארם', 'מכבי', 'קופת חולים', 'רופא', 'מרפאה', 'שיניים', 'אופטיקה'], category: 'בריאות' },
-    ];
-
-    for (const rule of rules) {
-      if (rule.keywords.some((kw) => normalized.includes(kw.toLowerCase()))) {
-        return rule.category;
-      }
-    }
-
-    // אם לא נמצא בחוקים — בדוק במפה השמורה
-    if (merchantCategoryMap?.has(normalized)) {
-      return merchantCategoryMap.get(normalized);
-    }
-
-    return '';
   };
 
   const loadMerchantCategoryMap = async (uid) => {
@@ -382,7 +347,7 @@ export default function TransactionsPage() {
 
             if (!merchant || amountNum === null) continue;
 
-            const category = inferCategoryFromMerchant(merchant, merchantCategoryMap) || '';
+            const category = categorizeMerchant(merchant, merchantCategoryMap) || '';
 
             const transaction = {
               date: postingDate,
@@ -399,10 +364,6 @@ export default function TransactionsPage() {
 
             try {
               await addDoc(collection(db, 'transactions'), transaction);
-
-              if (transaction.merchant && transaction.category) {
-                await saveMerchantCategory(user.uid, transaction.merchant, transaction.category, merchantCategoryMap);
-              }
 
               console.log('✅ פעולה הוספה:', transaction);
               total++;
@@ -462,10 +423,6 @@ export default function TransactionsPage() {
 
             try {
               await addDoc(collection(db, 'transactions'), transaction);
-
-              if (merchant && category) {
-                await saveMerchantCategory(user.uid, merchant, category, merchantCategoryMap);
-              }
 
               console.log('✅ פעולה הוספה:', transaction);
               total++;
