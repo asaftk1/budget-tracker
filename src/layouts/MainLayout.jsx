@@ -28,7 +28,7 @@ function Brand() {
       <span className="flex size-9 items-center justify-center rounded-control bg-primary text-white" aria-hidden="true">
         <Wallet size={18} />
       </span>
-      <span className="text-lg font-bold text-foreground">Balance</span>
+      <span className="text-lg font-bold text-foreground">מעקב תקציב</span>
     </div>
   );
 }
