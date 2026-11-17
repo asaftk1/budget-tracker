@@ -62,6 +62,7 @@ export default function CategoriesPage() {
           <li key={cat.id} className="flex justify-between items-center bg-gray-50 px-3 py-2 rounded shadow-sm">
             <span>📌 {cat.name}</span>
             <button
+              aria-label={`מחק קטגוריה ${cat.name}`}
               onClick={() => handleDeleteCategory(cat.id)}
               className="text-red-500 hover:text-red-700"
             >

@@ -754,8 +754,8 @@ export default function TransactionsPage() {
                   <div className="text-sm"><strong>סכום:</strong> ₪{tx.amount}</div>
                   <div className={`text-sm font-bold ${tx.type === 'הכנסה' ? 'text-green-600' : 'text-red-500'}`}>{tx.type}</div>
                   <div className="flex justify-end gap-2 mt-2">
-                    <button onClick={() => handleEdit(tx)} className="text-xs">✏️</button>
-                    <button onClick={() => handleDelete(tx.id)}>
+                    <button onClick={() => handleEdit(tx)} className="text-xs" aria-label="ערוך פעולה">✏️</button>
+                    <button onClick={() => handleDelete(tx.id)} aria-label="מחק פעולה">
                       <Trash2 className="text-red-500 hover:text-red-700" size={14} />
                     </button>
                   </div>
@@ -790,8 +790,8 @@ export default function TransactionsPage() {
                       <td className={`px-2 py-1 text-sm font-bold ${tx.type === 'הכנסה' ? 'text-green-600' : 'text-red-500'}`}>{tx.type}</td>
                       <td className="px-2 py-1">
                         <div className="flex justify-end items-center gap-2">
-                          <button onClick={() => handleEdit(tx)} className="text-xs">✏️</button>
-                          <button onClick={() => handleDelete(tx.id)}>
+                          <button onClick={() => handleEdit(tx)} className="text-xs" aria-label="ערוך פעולה">✏️</button>
+                          <button onClick={() => handleDelete(tx.id)} aria-label="מחק פעולה">
                             <Trash2 className="text-red-500 hover:text-red-700" size={14} />
                           </button>
                         </div>

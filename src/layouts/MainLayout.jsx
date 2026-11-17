@@ -21,7 +21,7 @@ export default function MainLayout({ children }) {
       {/* כפתור תפריט במובייל */}
       <div className="md:hidden flex justify-between items-center p-4 bg-white border-b">
         <h2 className="text-xl font-bold text-green-600">Balance</h2>
-        <button onClick={() => setSidebarOpen(!sidebarOpen)}>
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="תפריט" aria-expanded={sidebarOpen}>
           <Menu />
         </button>
       </div>
