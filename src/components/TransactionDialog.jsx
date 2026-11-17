@@ -45,12 +45,13 @@ export default function TransactionDialog({
         ) : (
           <form className="space-y-3 mt-4" noValidate onSubmit={handleSubmit}>
             <div>
-              <Label htmlFor="date">תאריך</Label>
-              <Input type="date" name="date" value={formData.date} onChange={onChange} />
+              <Label htmlFor="transaction-date">תאריך</Label>
+              <Input id="transaction-date" type="date" name="date" value={formData.date} onChange={onChange} />
             </div>
             <div>
-              <Label htmlFor="category">קטגוריה</Label>
+              <Label htmlFor="transaction-category">קטגוריה</Label>
               <Input
+                id="transaction-category"
                 list="category-options"
                 name="category"
                 value={formData.category}
@@ -64,8 +65,9 @@ export default function TransactionDialog({
               </datalist>
             </div>
             <div>
-              <Label htmlFor="amount">סכום</Label>
+              <Label htmlFor="transaction-amount">סכום</Label>
               <Input
+                id="transaction-amount"
                 type="number"
                 name="amount"
                 value={formData.amount}

@@ -97,3 +97,15 @@ describe('Analytics money display', () => {
     expect(text).toContain('3.00 ₪');
   });
 });
+
+describe('Analytics form labels', () => {
+  test('the two date filters are labelled', async () => {
+    mockDocs = [];
+    await render(AnalyticsPage);
+    for (const id of ['analytics-from', 'analytics-to']) {
+      const label = document.body.querySelector(`label[for=${id}]`);
+      expect(label).not.toBeNull();
+      expect(document.getElementById(id).tagName).toBe('INPUT');
+    }
+  });
+});

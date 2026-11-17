@@ -73,6 +73,7 @@ export default function CategoriesPage() {
           value={newCategory}
           onChange={(e) => setNewCategory(e.target.value)}
           placeholder="הוסף קטגוריה חדשה"
+          aria-label="שם קטגוריה חדשה"
         />
         <Button onClick={addCategory}>➕ הוסף</Button>
       </div>

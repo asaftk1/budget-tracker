@@ -124,3 +124,24 @@ describe('memoised derivations', () => {
     expect(groupTransactionsByDate.mock.calls.length).toBe(callsAfterOpen);
   });
 });
+
+describe('labels', () => {
+  test('the month picker is labelled', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    await act(async () => { createRoot(container).render(<TransactionsPage />); });
+    expect(document.body.querySelector('label[for=selected-month]')).not.toBeNull();
+    expect(document.getElementById('selected-month').type).toBe('month');
+  });
+
+  test('search and import controls are labelled once their dialogs are open', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    await act(async () => { createRoot(container).render(<TransactionsPage />); });
+
+    await click(buttonWith('🔍'));
+    await click(buttonWith('🔤'));
+    expect(document.body.querySelector('label[for=search-category]')).not.toBeNull();
+    expect(document.getElementById('search-category')).not.toBeNull();
+  });
+});

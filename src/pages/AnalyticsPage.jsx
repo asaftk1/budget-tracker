@@ -64,12 +64,12 @@ export default function AnalyticsPage() {
       <h2 className="text-2xl font-bold mb-4">📈 ניתוח נתונים</h2>
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="flex-1">
-          <label className="block mb-1 font-medium">מתאריך:</label>
-          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          <label htmlFor="analytics-from" className="block mb-1 font-medium">מתאריך:</label>
+          <Input id="analytics-from" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
         </div>
         <div className="flex-1">
-          <label className="block mb-1 font-medium">עד תאריך:</label>
-          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+          <label htmlFor="analytics-to" className="block mb-1 font-medium">עד תאריך:</label>
+          <Input id="analytics-to" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
         </div>
       </div>
 

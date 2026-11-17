@@ -19,7 +19,8 @@ export default function Login() {
     if (user && user.emailVerified) navigate("/dashboard");
   }, [user, navigate]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     try {
       setError("");
       setInfo("");
@@ -61,31 +62,51 @@ export default function Login() {
           {mode === "login" ? "התחברות למערכת" : "הרשמה למערכת"}
         </h2>
 
-        <Input type="email" placeholder="אימייל" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <Input type="password" placeholder="סיסמה" value={password} onChange={(e) => setPassword(e.target.value)} />
+        {/* A real form, so Enter submits. noValidate keeps the browser from adding its own popups. */}
+        <form onSubmit={handleSubmit} noValidate>
+          <Input
+            type="email"
+            name="email"
+            autoComplete="email"
+            aria-label="אימייל"
+            placeholder="אימייל"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <Input
+            type="password"
+            name="password"
+            autoComplete={mode === "login" ? "current-password" : "new-password"}
+            aria-label="סיסמה"
+            placeholder="סיסמה"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
 
-        {info && <p className="text-green-700 text-sm mt-2">{info}</p>}
-        {error && <p className="text-red-500 text-sm">{error}</p>}
-        {needsVerification && (
-          <button className="text-sm text-blue-600 underline" onClick={handleResend}>
-            שלח/י שוב מייל אימות
+          {info && <p role="status" className="text-green-700 text-sm mt-2">{info}</p>}
+          {error && <p role="alert" className="text-red-500 text-sm">{error}</p>}
+          {needsVerification && (
+            <button type="button" className="text-sm text-blue-600 underline" onClick={handleResend}>
+              שלח/י שוב מייל אימות
+            </button>
+          )}
+
+          <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-3">
+            {mode === "login" ? "התחבר" : "הירשם"}
+          </Button>
+
+          <button
+            type="button"
+            className="text-sm text-blue-600 mt-2"
+            onClick={() => setMode(mode === "login" ? "signup" : "login")}
+          >
+            {mode === "login" ? "אין לך חשבון? הירשם" : "כבר יש לך חשבון? התחבר"}
           </button>
-        )}
-
-        <Button onClick={handleSubmit} className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-3">
-          {mode === "login" ? "התחבר" : "הירשם"}
-        </Button>
-
-        <button
-          className="text-sm text-blue-600 mt-2"
-          onClick={() => setMode(mode === "login" ? "signup" : "login")}
-        >
-          {mode === "login" ? "אין לך חשבון? הירשם" : "כבר יש לך חשבון? התחבר"}
-        </button>
+        </form>
 
         <hr className="my-4" />
 
-        <Button onClick={signInWithGoogle} className="w-full bg-green-600 hover:bg-green-700 text-white">
+        <Button type="button" onClick={signInWithGoogle} className="w-full bg-green-600 hover:bg-green-700 text-white">
           התחבר באמצעות Google
         </Button>
       </div>

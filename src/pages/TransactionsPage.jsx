@@ -269,8 +269,9 @@ export default function TransactionsPage() {
 
               {searchType === 'category' && (
                 <div className="space-y-3 mt-4">
-                  <Label>קטגוריה</Label>
+                  <Label htmlFor="search-category">קטגוריה</Label>
                   <Input
+                    id="search-category"
                     list="categories"
                     name="category"
                     value={formData.category}
@@ -287,9 +288,9 @@ export default function TransactionsPage() {
 
               {searchType === 'date' && (
                 <div className="space-y-3 mt-4">
-                  <Label>בחר תאריך או חודש:</Label>
-                  <Input type="month" value={searchDate} onChange={(e) => setSearchDate(e.target.value)} />
-                  <Input type="date" value={searchDate} onChange={(e) => setSearchDate(e.target.value)} />
+                  <Label htmlFor="search-month">בחר תאריך או חודש:</Label>
+                  <Input id="search-month" type="month" value={searchDate} onChange={(e) => setSearchDate(e.target.value)} />
+                  <Input type="date" aria-label="תאריך" value={searchDate} onChange={(e) => setSearchDate(e.target.value)} />
                   <Button onClick={() => setSearchType('')}>🔙 חזור</Button>
                 </div>
               )}
@@ -324,8 +325,8 @@ export default function TransactionsPage() {
                 </div>
               ) : (
                 <div className="flex flex-col gap-3 mt-4">
-                  <p className="text-gray-700 font-medium">בחר קובץ מסוג XLSX</p>
-                  <input type="file" accept=".xlsx" onChange={handleFileSelection} className="border p-1 rounded" />
+                  <p id="import-file-label" className="text-gray-700 font-medium">בחר קובץ מסוג XLSX</p>
+                  <input type="file" accept=".xlsx" aria-labelledby="import-file-label" onChange={handleFileSelection} className="border p-1 rounded" />
                   <Button onClick={handleProcessImport} className="bg-green-500 text-white">📥 ייבוא</Button>
                   <Button onClick={() => { setCardType(''); setSelectedFile(null); }}>🔙 חזור</Button>
                 </div>
@@ -338,8 +339,9 @@ export default function TransactionsPage() {
       <div className="bg-white rounded shadow p-4">
         <h3 className="text-xl font-semibold mb-4">📋 טבלת פעולות</h3>
         <div className="mb-4">
-          <label className="font-semibold mr-2">בחר שנה וחודש:</label>
+          <label htmlFor="selected-month" className="font-semibold mr-2">בחר שנה וחודש:</label>
           <input
+            id="selected-month"
             type="month"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}

@@ -19,7 +19,7 @@ export default function TransactionRow({ tx, variant, index = 0, onEdit, onDelet
   );
 
   const missingCategoryButton = (title) => (
-    <button onClick={() => onMissingCategory(tx)} className="text-amber-600 font-bold" title={title}>!</button>
+    <button onClick={() => onMissingCategory(tx)} className="text-amber-600 font-bold" title={title} aria-label={title}>!</button>
   );
 
   if (variant === 'card') {

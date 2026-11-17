@@ -85,6 +85,18 @@ describe('TransactionDialog', () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
+  test('every label is tied to its input (htmlFor matches an existing id)', async () => {
+    await render({ ...baseProps(), step: 1 });
+    const labels = [...document.body.querySelectorAll('form label')];
+    expect(labels).toHaveLength(3);
+    for (const label of labels) {
+      const input = document.getElementById(label.getAttribute('for'));
+      expect(input).not.toBeNull();
+      expect(input.tagName).toBe('INPUT');
+    }
+    expect(new Set(labels.map((l) => l.getAttribute('for'))).size).toBe(3);
+  });
+
   test('typing calls onChange and the save button calls onSave', async () => {
     const props = { ...baseProps(), step: 1 };
     await render(props);

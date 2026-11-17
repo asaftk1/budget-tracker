@@ -81,6 +81,16 @@ describe('TransactionRow card variant', () => {
   });
 });
 
+describe('TransactionRow accessible names', () => {
+  test.each([['card'], ['table']])('every button in the %s variant has an accessible name', async (variant) => {
+    const ui = <TransactionRow tx={income} variant={variant} {...handlers()} />;
+    const c = await render(ui, variant === 'table' ? asTable : (x) => x);
+    const buttons = [...c.querySelectorAll('button')];
+    expect(buttons).toHaveLength(3); // missing category, edit, delete
+    for (const b of buttons) expect((b.getAttribute('aria-label') || b.textContent).trim().length).toBeGreaterThan(1);
+  });
+});
+
 describe('TransactionRow table variant', () => {
   test('renders five cells with the same data', async () => {
     const c = await render(<TransactionRow tx={expense} variant="table" {...handlers()} />, asTable);
@@ -100,7 +110,7 @@ describe('TransactionRow table variant', () => {
     const h = handlers();
     const c = await render(<TransactionRow tx={income} variant="table" {...h} />, asTable);
     await click(c.querySelector('button.text-amber-600'));
-    const [edit, del] = c.querySelectorAll('button[aria-label]');
+    const [edit, del] = c.querySelectorAll('button[aria-label]:not(.text-amber-600)');
     await click(edit);
     await click(del);
     expect(h.onMissingCategory).toHaveBeenCalledWith(income);
