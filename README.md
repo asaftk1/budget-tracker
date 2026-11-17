@@ -66,6 +66,17 @@ update `.firebaserc`. Deploy with `firebase deploy --only hosting` after `npm ru
 Transactions → "ייבוא קובץ אשראי", choose **Max** or **Isracard**, then upload the `.xlsx` statement
 exported from the card's website. Column positions are hard-coded for the current export formats.
 Re-importing the same file overwrites the same documents (deterministic IDs). Rows with a zero or out-of-range amount are skipped.
+Only `.xlsx` files up to 10 MB are accepted; the extension and the zip signature are checked before anything is parsed.
+
+### Why `xlsx` is installed from cdn.sheetjs.com
+
+The `xlsx` package on the npm registry stopped at 0.18.5, which has known vulnerabilities
+(prototype pollution, CVE-2023-30533, fixed in 0.19.3, and a ReDoS, CVE-2024-22363, fixed in 0.20.2).
+SheetJS publishes fixed releases only on its own CDN, so `package.json` points at
+`https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` and `package-lock.json` pins its integrity hash.
+**Do not switch it back to the npm registry** (`"xlsx": "^0.18.5"`). To upgrade, use a newer
+`https://cdn.sheetjs.com/xlsx-<version>/xlsx-<version>.tgz` URL and run `npm test`: `src/lib/xlsxReader.test.js`
+pins the sheet rows and parser output for a set of fixture workbooks.
 
 ## 🧠 Optional ML service
 
