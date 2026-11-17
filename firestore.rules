@@ -1,0 +1,55 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // To drop the verified-email requirement, change the body to: return true;
+    function isVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    // Existing document belongs to the signed-in, verified user.
+    function ownsExisting() {
+      return request.auth != null
+        && isVerified()
+        && request.auth.uid == resource.data.uid;
+    }
+
+    // New document is created for the signed-in, verified user.
+    function createsOwn() {
+      return request.auth != null
+        && isVerified()
+        && request.resource.data.uid == request.auth.uid;
+    }
+
+    // Update by the owner, and the owner field cannot be reassigned.
+    function updatesOwn() {
+      return ownsExisting()
+        && request.resource.data.uid == resource.data.uid;
+    }
+
+    match /transactions/{docId} {
+      allow read, delete: if ownsExisting();
+      allow create: if createsOwn();
+      allow update: if updatesOwn();
+    }
+
+    match /categories/{docId} {
+      allow read, delete: if ownsExisting();
+      allow create: if createsOwn();
+      allow update: if updatesOwn();
+    }
+
+    // Document IDs are "<uid>_<merchant>"; ownership is checked via the uid field.
+    match /merchantCategories/{docId} {
+      allow read, delete: if ownsExisting();
+      allow create: if createsOwn();
+      allow update: if updatesOwn();
+    }
+
+    // Deny everything else.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
