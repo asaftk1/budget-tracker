@@ -109,13 +109,33 @@ describe('subscriptions', () => {
     expect(fs.onSnapshot).not.toHaveBeenCalled();
   });
 
-  test('unmount cancels the auth listeners (snapshot listeners are not cancelled: known leak)', async () => {
-    // onAuthStateChanged ignores the value its callback returns, so the Firestore snapshot
-    // unsubscribe functions returned inside the callback are never called. This test pins the
-    // current behaviour; fixing the leak is a separate change.
+  test('unmount cancels the auth listeners and both snapshot listeners', async () => {
     const { unmount } = await renderHook();
+    expect(unsubs).toEqual([]);
     await unmount();
-    expect(unsubs).toEqual(['auth', 'auth']);
+    expect([...unsubs].sort()).toEqual(['auth', 'auth', 'categories', 'transactions']);
+  });
+
+  test('sign-out cancels both snapshot listeners and clears the data', async () => {
+    seed.transactions = [{ id: 't1', uid: 'u1', amount: 5 }];
+    seed.categories = [{ id: 'c1', uid: 'u1', name: 'food' }];
+    const callbacks = [];
+    authMod.onAuthStateChanged.mockImplementation((auth, cb) => {
+      callbacks.push(cb);
+      cb(currentUser);
+      return () => unsubs.push('auth');
+    });
+    const { result, unmount } = await renderHook();
+    expect(result.current.transactions).toHaveLength(1);
+
+    await act(async () => callbacks.forEach((cb) => cb(null)));
+    expect([...unsubs].sort()).toEqual(['categories', 'transactions']);
+    expect(result.current.transactions).toEqual([]);
+    expect(result.current.categories).toEqual([]);
+
+    // Unmounting afterwards must not cancel the same listeners a second time.
+    await unmount();
+    expect([...unsubs].sort()).toEqual(['auth', 'auth', 'categories', 'transactions']);
   });
 });
 

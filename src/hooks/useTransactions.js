@@ -89,42 +89,58 @@ export default function useTransactions() {
 
   useEffect(() => {
     const auth = getAuth();
+    // The snapshot listener lives as long as the signed-in user. It is cancelled on sign-out, when
+    // the user changes, and on unmount (the return value of an auth callback is ignored).
+    let stopSnapshot = null;
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (stopSnapshot) {
+        stopSnapshot();
+        stopSnapshot = null;
+      }
       if (!user) {
         setCategories([]);
         return;
       }
 
       const q = query(collection(db, 'categories'), where('uid', '==', user.uid));
-      const unsubscribeSnapshot = onSnapshot(q, (snap) => {
+      stopSnapshot = onSnapshot(q, (snap) => {
         const data = snap.docs.map(doc => doc.data().name);
         setCategories(data);
       });
-
-      return unsubscribeSnapshot;
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (stopSnapshot) stopSnapshot();
+    };
   }, []);
 
   useEffect(() => {
     const auth = getAuth();
+    // The snapshot listener lives as long as the signed-in user. It is cancelled on sign-out, when
+    // the user changes, and on unmount (the return value of an auth callback is ignored).
+    let stopSnapshot = null;
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (stopSnapshot) {
+        stopSnapshot();
+        stopSnapshot = null;
+      }
       if (!user) {
         setTransactions([]);
         return;
       }
 
       const q = query(collection(db, 'transactions'), where('uid', '==', user.uid));
-      const unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+      stopSnapshot = onSnapshot(q, (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setTransactions(data);
       });
-
-      return unsubscribeSnapshot;
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (stopSnapshot) stopSnapshot();
+    };
   }, []);
 
   // Create or update a transaction from the add/edit form. Adds the category to the user's
