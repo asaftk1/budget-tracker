@@ -114,6 +114,21 @@ for (const [name, c] of Object.entries(COLLECTIONS)) {
   });
 }
 
+describe('merchantCategories document id prefix', () => {
+  const create = (id, uid) =>
+    verified(OWNER).collection('merchantCategories').doc(id).set(COLLECTIONS.merchantCategories.data(uid));
+
+  it('allows create when the id starts with own uid + "_"', async () =>
+    assertSucceeds(create(`${OWNER}_new`, OWNER)));
+  it('denies create with another user\'s uid prefix (own uid field)', async () =>
+    assertFails(create(`${OTHER}_shop`, OWNER)));
+  it('denies create with no prefix', async () => assertFails(create('shop', OWNER)));
+  it('denies create when the id is only the uid (no underscore)', async () =>
+    assertFails(create(OWNER, OWNER)));
+  it('denies create with a lookalike prefix (alice2_)', async () =>
+    assertFails(create(`${OWNER}2_shop`, OWNER)));
+});
+
 describe('catch-all', () => {
   it('denies access to collections that are not listed', async () => {
     const db = verified(OWNER);

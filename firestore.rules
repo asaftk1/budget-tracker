@@ -40,10 +40,11 @@ service cloud.firestore {
       allow update: if updatesOwn();
     }
 
-    // Document IDs are "<uid>_<merchant>"; ownership is checked via the uid field.
+    // Document IDs are "<uid>_<merchant>". Create requires the ID to start with the
+    // caller's uid so nobody can pre-create (squat) another user's document IDs.
     match /merchantCategories/{docId} {
       allow read, delete: if ownsExisting();
-      allow create: if createsOwn();
+      allow create: if createsOwn() && docId.matches(request.auth.uid + '_.*');
       allow update: if updatesOwn();
     }
 
