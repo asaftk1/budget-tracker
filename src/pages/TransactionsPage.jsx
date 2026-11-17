@@ -17,6 +17,7 @@ import { buildTransactionId } from '../lib/transactionId';
 import { dedupeCategories } from '../lib/categories';
 import { groupTransactionsByDate } from '../lib/summaries';
 import { SOURCE } from '../constants';
+import { devLog } from '../lib/devLog';
 import { amountError, formatMoney, getAgorot, fromAgorot, MAX_AMOUNT_AGOROT } from '../lib/money';
 
 // Form messages for amountError() codes.
@@ -88,12 +89,12 @@ export default function TransactionsPage() {
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      console.log('Selected file:', file.name);
+      devLog('Selected file:', file.name);
     }
   };
 
   const handleProcessImport = () => {
-    console.log('📥 ייבוא התחיל...');
+    devLog('📥 ייבוא התחיל...');
     if (!selectedFile) return;
 
     const reader = new FileReader();
@@ -147,7 +148,7 @@ export default function TransactionsPage() {
       // Every document carries uid === the signed-in user, as firestore.rules requires.
       total = await commitTransactions(pending);
 
-      console.log(`✔️ הסתיים ייבוא: נוספו ${total} פעולות`);
+      devLog(`✔️ הסתיים ייבוא: נוספו ${total} פעולות`);
       setSelectedFile(null);
       setCardType('');
       setImportDialogOpen(false);
