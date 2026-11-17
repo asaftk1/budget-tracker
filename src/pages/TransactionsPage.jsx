@@ -21,6 +21,7 @@ import { EMPTY_FILTERS, filterTransactions, hasActiveFilter } from '../lib/filte
 import { SOURCE } from '../constants';
 import { devLog } from '../lib/devLog';
 import { buildImportReport } from '../lib/importReport';
+import { checkImportFile, IMPORT_FILE_ERRORS } from '../lib/importFile';
 import { amountError, formatMoney, getAgorot, fromAgorot, MAX_AMOUNT_AGOROT } from '../lib/money';
 
 // Form messages for amountError() codes.
@@ -54,6 +55,8 @@ export default function TransactionsPage() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   // Outcome of the last import, shown in the import dialog: { tone, lines } or null.
   const [importResult, setImportResult] = useState(null);
+  // Hebrew message for a rejected or unreadable file, shown in the import dialog ('' when none).
+  const [importError, setImportError] = useState('');
   const [cardType, setCardType] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [editTransaction, setEditTransaction] = useState(null);
@@ -102,15 +105,28 @@ export default function TransactionsPage() {
 
   const handleImportDialogOpenChange = (open) => {
     setImportDialogOpen(open);
-    if (open) setImportResult(null);
+    if (open) {
+      setImportResult(null);
+      setImportError('');
+    }
   };
 
-  const handleFileSelection = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      devLog('Selected file:', file.name);
+  const handleFileSelection = async (e) => {
+    const input = e.target;
+    const file = input.files?.[0];
+    setImportError('');
+    if (!file) return;
+
+    // Reject by size and type before the file is read or parsed.
+    const problem = await checkImportFile(file);
+    if (problem) {
+      setSelectedFile(null);
+      setImportError(IMPORT_FILE_ERRORS[problem]);
+      input.value = '';
+      return;
     }
+    setSelectedFile(file);
+    devLog('Selected file:', file.name);
   };
 
   const handleProcessImport = () => {
@@ -128,7 +144,20 @@ export default function TransactionsPage() {
       }
 
       const data = evt.target.result;
-      const workbook = XLSX.read(data, { type: 'binary' });
+      // A corrupt or unsupported file must not fail silently: report it in the dialog.
+      const failRead = (err) => {
+        console.error('Failed to read the import file', err);
+        setSelectedFile(null);
+        setImportError(IMPORT_FILE_ERRORS.unreadable);
+      };
+
+      let workbook;
+      try {
+        workbook = XLSX.read(data, { type: 'binary' });
+      } catch (err) {
+        failRead(err);
+        return;
+      }
 
       let total = 0;
       // Counts for the result message. Only the parser's own 'invalid-amount' warning means a skipped row.
@@ -143,36 +172,41 @@ export default function TransactionsPage() {
       const pending = [];
       const merchantCategoryMap = await loadMerchantCategoryMap(user.uid);
 
-      for (const sheetName of workbook.SheetNames) {
-        const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      try {
+        for (const sheetName of workbook.SheetNames) {
+          const worksheet = workbook.Sheets[sheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-        if (json.length < 2) {
-          emptySheets += 1;
-          continue;
-        }
+          if (json.length < 2) {
+            emptySheets += 1;
+            continue;
+          }
 
-        let parsed = [];
-        if (cardType === SOURCE.ISRACARD) {
-          parsed = parseIsracardSheet(json, { merchantCategoryMap, onWarn });
-        } else if (cardType === SOURCE.MAX) {
-          parsed = parseMaxSheet(json, { onWarn });
-        }
+          let parsed = [];
+          if (cardType === SOURCE.ISRACARD) {
+            parsed = parseIsracardSheet(json, { merchantCategoryMap, onWarn });
+          } else if (cardType === SOURCE.MAX) {
+            parsed = parseMaxSheet(json, { onWarn });
+          }
 
-        for (const { rowIndex, transaction } of parsed) {
-          const docData = { ...transaction, uid: user.uid };
-          pending.push({
-            id: buildTransactionId({
-              uid: user.uid,
-              source: docData.source,
-              date: docData.date,
-              merchant: docData.merchant,
-              amount: docData.amount,
-              rowKey: `${sheetName}#${rowIndex}`,
-            }),
-            data: docData,
-          });
+          for (const { rowIndex, transaction } of parsed) {
+            const docData = { ...transaction, uid: user.uid };
+            pending.push({
+              id: buildTransactionId({
+                uid: user.uid,
+                source: docData.source,
+                date: docData.date,
+                merchant: docData.merchant,
+                amount: docData.amount,
+                rowKey: `${sheetName}#${rowIndex}`,
+              }),
+              data: docData,
+            });
+          }
         }
+      } catch (err) {
+        failRead(err);
+        return;
       }
 
       // Deterministic ids: re-importing the same file overwrites the same documents.
@@ -194,6 +228,12 @@ export default function TransactionsPage() {
         invalidAmount,
         emptySheets,
       }));
+    };
+
+    reader.onerror = () => {
+      console.error('Failed to read the import file', reader.error);
+      setSelectedFile(null);
+      setImportError(IMPORT_FILE_ERRORS.unreadable);
     };
 
     reader.readAsBinaryString(selectedFile);
@@ -382,8 +422,9 @@ export default function TransactionsPage() {
                 <div className="flex flex-col gap-3 mt-4">
                   <p id="import-file-label" className="text-gray-700 font-medium">בחר קובץ מסוג XLSX</p>
                   <input type="file" accept=".xlsx" aria-labelledby="import-file-label" onChange={handleFileSelection} className="border p-1 rounded" />
+                  {importError && <p role="alert" className="text-red-600 text-sm">{importError}</p>}
                   <Button onClick={handleProcessImport} className="bg-green-500 text-white">📥 ייבוא</Button>
-                  <Button onClick={() => { setCardType(''); setSelectedFile(null); }}>🔙 חזור</Button>
+                  <Button onClick={() => { setCardType(''); setSelectedFile(null); setImportError(''); }}>🔙 חזור</Button>
                 </div>
               )}
             </DialogContent>

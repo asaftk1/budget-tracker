@@ -271,6 +271,14 @@ describe('loading, error and empty states', () => {
   });
 });
 
+// A file whose first bytes are the zip signature, like a real .xlsx.
+const xlsxFile = (name = 'max.xlsx') => new File([new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0])], name);
+async function pickFile(input, file) {
+  Object.defineProperty(input, 'files', { value: [file], configurable: true });
+  await act(async () => { input.dispatchEvent(new Event('change', { bubbles: true })); });
+  await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+}
+
 describe('import result', () => {
   const parsedRows = (n) => Array.from({ length: n }, (_, i) => ({
     rowIndex: i,
@@ -291,9 +299,7 @@ describe('import result', () => {
     await click(buttonWith('📂'));
     await click(buttonWith('Max'));
     const input = document.body.querySelector('input[type=file]');
-    const file = new File(['x'], 'max.xlsx');
-    Object.defineProperty(input, 'files', { value: [file] });
-    await act(async () => { input.dispatchEvent(new Event('change', { bubbles: true })); });
+    await pickFile(input, xlsxFile());
     await click(buttonWith('📥'));
     await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
   }
@@ -352,6 +358,107 @@ describe('import result', () => {
     await click(buttonWith('📂'));
     expect(statuses()).not.toContain('יובא');
     expect(buttonWith('Max')).toBeTruthy();
+  });
+});
+
+describe('import file problems', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    getAuth.mockReturnValue({ currentUser: { uid: 'u1' } });
+    XLSX.read.mockReturnValue({ SheetNames: ['s1'], Sheets: { s1: {} } });
+    XLSX.utils.sheet_to_json.mockReturnValue([['h'], ['row']]);
+    parseMaxSheet.mockReturnValue([]);
+    commitTransactions.mockResolvedValue(0);
+  });
+  const alerts = () => [...document.body.querySelectorAll('[role=alert]')].map((n) => n.textContent).join('|');
+
+  async function openFileStep() {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    await act(async () => { createRoot(container).render(<TransactionsPage />); });
+    await click(buttonWith('📂'));
+    await click(buttonWith('Max'));
+    return document.body.querySelector('input[type=file]');
+  }
+  const runImport = async () => {
+    await click(buttonWith('📥'));
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+  };
+
+  test('a file over 10 MB is refused before it is read', async () => {
+    const input = await openFileStep();
+    const big = xlsxFile('big.xlsx');
+    Object.defineProperty(big, 'size', { value: 10 * 1024 * 1024 + 1 });
+    await pickFile(input, big);
+    expect(alerts()).toContain('גדול מדי');
+    await runImport();
+    expect(XLSX.read).not.toHaveBeenCalled();
+  });
+
+  test.each([['legacy .xls', 'a.xls'], ['a csv', 'a.csv']])('%s is refused with the type message', async (label, name) => {
+    const input = await openFileStep();
+    await pickFile(input, xlsxFile(name));
+    expect(alerts()).toContain('סוג הקובץ אינו נתמך');
+    await runImport();
+    expect(XLSX.read).not.toHaveBeenCalled();
+  });
+
+  test('a renamed file without the zip signature is refused', async () => {
+    const input = await openFileStep();
+    await pickFile(input, new File([new Uint8Array([0x4d, 0x5a, 0, 0, 0])], 'a.xlsx'));
+    expect(alerts()).toContain('סוג הקובץ אינו נתמך');
+    expect(XLSX.read).not.toHaveBeenCalled();
+  });
+
+  test('a file that XLSX.read cannot open shows the Hebrew read error and keeps the dialog open', async () => {
+    XLSX.read.mockImplementation(() => { throw new Error('corrupt'); });
+    const input = await openFileStep();
+    await pickFile(input, xlsxFile());
+    expect(alerts()).toBe('');
+    await runImport();
+    expect(alerts()).toContain('לא הצלחנו לקרוא את הקובץ');
+    expect(commitTransactions).not.toHaveBeenCalled();
+    expect(buttonWith('📥')).toBeTruthy();
+    expect(document.body.textContent).not.toContain('הייבוא הסתיים');
+  });
+
+  test('a sheet that cannot be converted shows the same error and writes nothing', async () => {
+    XLSX.utils.sheet_to_json.mockImplementation(() => { throw new Error('bad sheet'); });
+    const input = await openFileStep();
+    await pickFile(input, xlsxFile());
+    await runImport();
+    expect(alerts()).toContain('לא הצלחנו לקרוא את הקובץ');
+    expect(commitTransactions).not.toHaveBeenCalled();
+  });
+
+  test('a file the browser cannot read shows the read error', async () => {
+    const input = await openFileStep();
+    await pickFile(input, xlsxFile());
+    // Only the full read is made to fail; the signature check already passed.
+    const spy = jest.spyOn(FileReader.prototype, 'readAsBinaryString').mockImplementation(function fail() {
+      setTimeout(() => this.onerror && this.onerror(new Event('error')), 0);
+    });
+    await runImport();
+    spy.mockRestore();
+    expect(alerts()).toContain('לא הצלחנו לקרוא את הקובץ');
+    expect(XLSX.read).not.toHaveBeenCalled();
+  });
+
+  test('picking a valid file clears the earlier error', async () => {
+    const input = await openFileStep();
+    await pickFile(input, xlsxFile('a.xls'));
+    expect(alerts()).toBeTruthy();
+    await pickFile(input, xlsxFile('good.xlsx'));
+    expect(alerts()).toBe('');
+  });
+
+  test('going back and reopening the dialog clears the error', async () => {
+    const input = await openFileStep();
+    await pickFile(input, xlsxFile('a.xls'));
+    await click(buttonWith('🔙'));
+    await click(buttonWith('Max'));
+    expect(alerts()).toBe('');
   });
 });
 
