@@ -2,6 +2,7 @@
 import { useMemo } from "react";
 import dayjs from "dayjs";
 import { getAgorot, fromAgorot, formatMoney } from "../lib/money";
+import { TYPE } from "../constants";
 
 // Thresholds in agorot (amounts below are integer agorot until displayed or scored).
 const SPIKE_MIN_AGOROT = 200 * 100;
@@ -24,7 +25,7 @@ export function buildSuggestions(transactions = []) {
     if (!transactions.length) return [];
 
     // רק הוצאות
-    const expenses = transactions.filter(t => t.type === "הוצאה");
+    const expenses = transactions.filter(t => t.type === TYPE.EXPENSE);
 
     // 1) זיהוי חיובים חוזרים (מנויים/סבסקריפשנים)
     const byMerchant = {};

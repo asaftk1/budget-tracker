@@ -2,7 +2,7 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import Dashboard from './Dashboard';
 import AnalyticsPage from './AnalyticsPage';
-import { TX_TYPE } from '../lib/statementParsers';
+import { TYPE } from '../constants';
 
 let mockDocs = [];
 
@@ -38,10 +38,10 @@ async function render(Page) {
 describe('Dashboard money display', () => {
   test('totals are exact sums of legacy and new documents, formatted in Hebrew ILS', async () => {
     mockDocs = [
-      { id: '1', type: TX_TYPE.INCOME, date: day(1), category: 'pay', amount: 0.1 },
-      { id: '2', type: TX_TYPE.INCOME, date: day(2), category: 'pay', amount: 0.2 },
-      { id: '3', type: TX_TYPE.EXPENSE, date: day(3), category: 'food', amountAgorot: 5, amount: 0.05 },
-      { id: '4', type: TX_TYPE.INCOME, date: day(4), category: 'pay', amountAgorot: 5992173 },
+      { id: '1', type: TYPE.INCOME, date: day(1), category: 'pay', amount: 0.1 },
+      { id: '2', type: TYPE.INCOME, date: day(2), category: 'pay', amount: 0.2 },
+      { id: '3', type: TYPE.EXPENSE, date: day(3), category: 'food', amountAgorot: 5, amount: 0.05 },
+      { id: '4', type: TYPE.INCOME, date: day(4), category: 'pay', amountAgorot: 5992173 },
     ];
     const text = await render(Dashboard);
     expect(text).toContain('59,922.03 ₪'); // income: 10 + 20 + 5,992,173 agorot
@@ -51,7 +51,7 @@ describe('Dashboard money display', () => {
 
   test('a hundred charges of 0.10 add up to exactly 10.00', async () => {
     mockDocs = Array.from({ length: 100 }, (_, i) => ({
-      id: `e${i}`, type: TX_TYPE.EXPENSE, date: day(5), category: 'x', amount: 0.1,
+      id: `e${i}`, type: TYPE.EXPENSE, date: day(5), category: 'x', amount: 0.1,
     }));
     const text = await render(Dashboard);
     expect(text).toContain('10.00 ₪');
@@ -60,13 +60,13 @@ describe('Dashboard money display', () => {
   });
 
   test('recent transactions show a sign and the formatted amount', async () => {
-    mockDocs = [{ id: 'r1', type: TX_TYPE.EXPENSE, date: day(7), category: 'food', amountAgorot: 1999 }];
+    mockDocs = [{ id: 'r1', type: TYPE.EXPENSE, date: day(7), category: 'food', amountAgorot: 1999 }];
     const text = await render(Dashboard);
     expect(text).toContain('-19.99 ₪');
   });
 
   test('documents with an unusable amount count as zero', async () => {
-    mockDocs = [{ id: 'b1', type: TX_TYPE.EXPENSE, date: day(7), category: 'food', amount: 'abc' }];
+    mockDocs = [{ id: 'b1', type: TYPE.EXPENSE, date: day(7), category: 'food', amount: 'abc' }];
     const text = await render(Dashboard);
     expect(text).toContain('0.00 ₪');
     expect(text).not.toContain('NaN');
@@ -76,9 +76,9 @@ describe('Dashboard money display', () => {
 describe('Analytics money display', () => {
   test('category totals, the grand total and percentages use exact agorot', async () => {
     mockDocs = [
-      { id: 'a1', type: TX_TYPE.EXPENSE, date: day(1), category: 'a', amount: 0.1 },
-      { id: 'a2', type: TX_TYPE.EXPENSE, date: day(2), category: 'a', amount: 0.2 },
-      { id: 'b1', type: TX_TYPE.EXPENSE, date: day(3), category: 'b', amountAgorot: 505 },
+      { id: 'a1', type: TYPE.EXPENSE, date: day(1), category: 'a', amount: 0.1 },
+      { id: 'a2', type: TYPE.EXPENSE, date: day(2), category: 'a', amount: 0.2 },
+      { id: 'b1', type: TYPE.EXPENSE, date: day(3), category: 'b', amountAgorot: 505 },
     ];
     const text = await render(AnalyticsPage);
     expect(text).toContain('5.35 ₪'); // total: 30 + 505 agorot
@@ -90,8 +90,8 @@ describe('Analytics money display', () => {
 
   test('uncategorised expenses are grouped under one label', async () => {
     mockDocs = [
-      { id: 'u1', type: TX_TYPE.EXPENSE, date: day(1), category: '', amount: 1 },
-      { id: 'u2', type: TX_TYPE.EXPENSE, date: day(2), amount: 2 },
+      { id: 'u1', type: TYPE.EXPENSE, date: day(1), category: '', amount: 1 },
+      { id: 'u2', type: TYPE.EXPENSE, date: day(2), amount: 2 },
     ];
     const text = await render(AnalyticsPage);
     expect(text).toContain('3.00 ₪');

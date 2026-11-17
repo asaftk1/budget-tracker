@@ -1,11 +1,12 @@
 import { Trash2 } from 'lucide-react';
 import { getAgorot, formatMoney } from '../lib/money';
+import { TYPE } from '../constants';
 
 // One transaction, rendered either as a mobile card (variant "card") or as a desktop
 // table row (variant "table"). The two variants share the same data and actions.
 //   index: row position, used for zebra striping in the table variant.
 export default function TransactionRow({ tx, variant, index = 0, onEdit, onDelete, onMissingCategory }) {
-  const isIncome = tx.type === 'הכנסה';
+  const isIncome = tx.type === TYPE.INCOME;
   const typeColor = isIncome ? 'text-green-600' : 'text-red-500';
 
   const actions = (

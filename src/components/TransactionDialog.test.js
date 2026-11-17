@@ -1,7 +1,7 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import TransactionDialog from './TransactionDialog';
-import { TX_TYPE } from '../lib/statementParsers';
+import { TYPE } from '../constants';
 
 beforeEach(() => {
   global.IS_REACT_ACT_ENVIRONMENT = true;
@@ -43,7 +43,7 @@ describe('TransactionDialog', () => {
     expect(document.body.querySelector('input')).toBeNull();
     await click(buttonWith('💰'));
     await click(buttonWith('💸'));
-    expect(props.onSelectType.mock.calls).toEqual([[TX_TYPE.INCOME], [TX_TYPE.EXPENSE]]);
+    expect(props.onSelectType.mock.calls).toEqual([[TYPE.INCOME], [TYPE.EXPENSE]]);
   });
 
   test('step 1 shows the form fields with their values and the category suggestions', async () => {

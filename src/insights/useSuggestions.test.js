@@ -1,7 +1,7 @@
 import { buildSuggestions } from './useSuggestions';
-import { TX_TYPE } from '../lib/statementParsers';
+import { TYPE } from '../constants';
 
-const exp = (date, category, amount, extra = {}) => ({ type: TX_TYPE.EXPENSE, date, category, amount, ...extra });
+const exp = (date, category, amount, extra = {}) => ({ type: TYPE.EXPENSE, date, category, amount, ...extra });
 const digits = (s) => s.replace(/\D/g, '');
 
 describe('buildSuggestions', () => {
@@ -77,7 +77,7 @@ describe('buildSuggestions', () => {
 
   test('income is ignored', () => {
     const items = [
-      { type: TX_TYPE.INCOME, date: '2025-01-01', category: 'fee', amount: 5000 },
+      { type: TYPE.INCOME, date: '2025-01-01', category: 'fee', amount: 5000 },
     ];
     expect(buildSuggestions(items)).toEqual([]);
   });

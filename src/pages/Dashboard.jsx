@@ -7,6 +7,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pi
 import Suggestions from '../components/Suggestions';
 import dayjs from 'dayjs';
 import { getAgorot, fromAgorot, formatMoney, sumAgorot, sumAgorotBy } from '../lib/money';
+import { TYPE, UNCATEGORIZED, CHART_COLORS } from '../constants';
 
 export default function Dashboard() {
     const [transactions, setTransactions] = useState([]);
@@ -26,18 +27,18 @@ export default function Dashboard() {
     }, []);
 
     // All money below is integer agorot until it is displayed or handed to a chart.
-    const totalIncome = sumAgorot(transactions.filter(tx => tx.type === 'הכנסה'));
+    const totalIncome = sumAgorot(transactions.filter(tx => tx.type === TYPE.INCOME));
 
-    const totalExpense = sumAgorot(transactions.filter(tx => tx.type === 'הוצאה'));
+    const totalExpense = sumAgorot(transactions.filter(tx => tx.type === TYPE.EXPENSE));
 
     const balance = totalIncome - totalExpense;
 
     const expensesByCategory = sumAgorotBy(
-        transactions.filter(tx => tx.type === 'הוצאה'),
-        tx => tx.category || 'לא מסווג'
+        transactions.filter(tx => tx.type === TYPE.EXPENSE),
+        tx => tx.category || UNCATEGORIZED
     );
 
-    const COLORS = ['#FF6384', '#36A2EB', '#FFCE56', '#4CAF50', '#FF9800', '#9C27B0', '#03A9F4'];
+    const COLORS = CHART_COLORS.palette;
     const pieData = Object.entries(expensesByCategory).map(([category, value]) => ({
         name: category,
         value
@@ -50,10 +51,10 @@ export default function Dashboard() {
 
         // Charts take shekels; the sums themselves are exact agorot.
         const income = fromAgorot(sumAgorot(transactions
-            .filter(tx => tx.type === 'הכנסה' && new Date(tx.date).getMonth() === date.getMonth() && new Date(tx.date).getFullYear() === date.getFullYear())));
+            .filter(tx => tx.type === TYPE.INCOME && new Date(tx.date).getMonth() === date.getMonth() && new Date(tx.date).getFullYear() === date.getFullYear())));
 
         const expense = fromAgorot(sumAgorot(transactions
-            .filter(tx => tx.type === 'הוצאה' && new Date(tx.date).getMonth() === date.getMonth() && new Date(tx.date).getFullYear() === date.getFullYear())));
+            .filter(tx => tx.type === TYPE.EXPENSE && new Date(tx.date).getMonth() === date.getMonth() && new Date(tx.date).getFullYear() === date.getFullYear())));
 
         return { month, income, expense };
     }).reverse();
@@ -110,8 +111,8 @@ export default function Dashboard() {
                                             <p className="font-semibold">{tx.category}</p>
                                             <p className="text-sm text-gray-500">{tx.date}</p>
                                         </div>
-                                        <span className={`font-bold ${tx.type === 'הכנסה' ? 'text-green-600' : 'text-red-500'}`}>
-                                            {tx.type === 'הכנסה' ? '+' : '-'}{formatMoney(getAgorot(tx))}
+                                        <span className={`font-bold ${tx.type === TYPE.INCOME ? 'text-green-600' : 'text-red-500'}`}>
+                                            {tx.type === TYPE.INCOME ? '+' : '-'}{formatMoney(getAgorot(tx))}
                                         </span>
                                     </li>
                                 ))}
@@ -130,8 +131,8 @@ export default function Dashboard() {
                                 <XAxis dataKey="month" />
                                 <YAxis domain={[0, 'dataMax + 2000']} tick={{ textAnchor: 'start', dx: -10 }} />
                                 <Tooltip />
-                                <Bar dataKey="income" fill="#22c55e" name="הכנסה" />
-                                <Bar dataKey="expense" fill="#ef4444" name="הוצאה" />
+                                <Bar dataKey="income" fill={CHART_COLORS.income} name="הכנסה" />
+                                <Bar dataKey="expense" fill={CHART_COLORS.expense} name="הוצאה" />
                             </BarChart>
                         </ResponsiveContainer>
                     </CardContent>

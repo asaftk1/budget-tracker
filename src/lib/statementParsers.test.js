@@ -5,8 +5,8 @@ import {
   HEBREW_MONTHS,
   ISRACARD_BILLING_REGEX,
   NOTE_FILL_CATEGORY,
-  TX_TYPE,
 } from './statementParsers';
+import { TYPE } from '../constants';
 
 // Tests run with TZ=Asia/Jerusalem (see src/jestGlobalSetup.js).
 
@@ -58,7 +58,7 @@ describe('parseIsracardSheet', () => {
           category: '',
           amount: 49.9,
           amountAgorot: 4990,
-          type: TX_TYPE.EXPENSE,
+          type: TYPE.EXPENSE,
           source: 'isracard',
           notes: NOTE_FILL_CATEGORY,
         },
@@ -91,8 +91,8 @@ describe('parseIsracardSheet', () => {
       ['04.04.25', 'qzxv b', '', '', '(30.00)'],
     ]));
     expect(rows.map((r) => [r.transaction.amount, r.transaction.type])).toEqual([
-      [1200.5, TX_TYPE.EXPENSE],
-      [30, TX_TYPE.INCOME],
+      [1200.5, TYPE.EXPENSE],
+      [30, TYPE.INCOME],
     ]);
   });
 
@@ -168,7 +168,7 @@ describe('parseMaxSheet', () => {
           category: 'food',
           amount: 77.5,
           amountAgorot: 7750,
-          type: TX_TYPE.EXPENSE,
+          type: TYPE.EXPENSE,
           source: 'max',
         },
       },
@@ -193,8 +193,8 @@ describe('parseMaxSheet', () => {
       line('2025-03-02', 'b', 'x', '(15)', '2025-04-10'),
     ]);
     expect(rows.map((r) => [r.transaction.amount, r.transaction.type])).toEqual([
-      [1000, TX_TYPE.EXPENSE],
-      [15, TX_TYPE.INCOME],
+      [1000, TYPE.EXPENSE],
+      [15, TYPE.INCOME],
     ]);
   });
 
@@ -258,7 +258,7 @@ describe('parseMaxSheet', () => {
 
   test('the stored amount is positive even for refunds', () => {
     const [row] = parseMaxSheet([...header, line('2025-03-02', 'a', 'x', '(15.10)', '2025-04-10')]);
-    expect(row.transaction.type).toBe(TX_TYPE.INCOME);
+    expect(row.transaction.type).toBe(TYPE.INCOME);
     expect(row.transaction.amountAgorot).toBe(1510);
   });
 

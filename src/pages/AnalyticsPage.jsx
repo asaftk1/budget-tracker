@@ -8,12 +8,13 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pi
 import { Input } from '../components/ui/input';
 import dayjs from 'dayjs';
 import { fromAgorot, formatMoney, sumAgorot, sumAgorotBy } from '../lib/money';
+import { TYPE, UNCATEGORIZED, CHART_COLORS } from '../constants';
 
 export default function AnalyticsPage() {
   const [transactions, setTransactions] = useState([]);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
-  const COLORS = ['#FF6384', '#36A2EB', '#FFCE56', '#4CAF50', '#FF9800', '#9C27B0', '#795548', '#00BCD4'];
+  const COLORS = CHART_COLORS.palette;
 
   useEffect(() => {
     const user = getAuth().currentUser;
@@ -35,8 +36,8 @@ export default function AnalyticsPage() {
   // Per-category totals in integer agorot.
   const expensesByCategory = useMemo(() => {
     return sumAgorotBy(
-      filtered.filter(tx => tx.type === 'הוצאה'),
-      tx => tx.category || 'לא מסווג'
+      filtered.filter(tx => tx.type === TYPE.EXPENSE),
+      tx => tx.category || UNCATEGORIZED
     );
   }, [filtered]);
 
@@ -55,8 +56,8 @@ export default function AnalyticsPage() {
   const chartData = useMemo(() => [{
     name: 'סיכום',
     // The bar chart takes shekels; the sums themselves are exact agorot.
-    הכנסות: fromAgorot(sumAgorot(filtered.filter(tx => tx.type === 'הכנסה'))),
-    הוצאות: fromAgorot(sumAgorot(filtered.filter(tx => tx.type === 'הוצאה')))
+    הכנסות: fromAgorot(sumAgorot(filtered.filter(tx => tx.type === TYPE.INCOME))),
+    הוצאות: fromAgorot(sumAgorot(filtered.filter(tx => tx.type === TYPE.EXPENSE)))
   }], [filtered]);
 
   // Pie values and totals are agorot; bar chart values are shekels.
@@ -144,8 +145,8 @@ export default function AnalyticsPage() {
                 <XAxis dataKey="name" />
                 <YAxis tick={{ textAnchor: 'start', dx: -10 }} />
                 <Tooltip formatter={(value, name) => [formatBarValue(value), name]} />
-                <Bar dataKey="הכנסות" fill="#22c55e" />
-                <Bar dataKey="הוצאות" fill="#ef4444" />
+                <Bar dataKey="הכנסות" fill={CHART_COLORS.income} />
+                <Bar dataKey="הוצאות" fill={CHART_COLORS.expense} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

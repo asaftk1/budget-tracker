@@ -6,14 +6,13 @@
 import { categorizeMerchant } from './categorize';
 import { cleanAmount } from './amounts';
 import { toAgorot, fromAgorot } from './money';
+import { TYPE, SOURCE, IMPORT_COLUMNS } from '../constants';
 import {
   getLastDayOfPreviousMonth,
   computeIsracardChargeDate,
   parseExcelDate,
   parseIsracardDate,
 } from './importDates';
-
-export const TX_TYPE = { EXPENSE: 'הוצאה', INCOME: 'הכנסה' };
 
 export const HEBREW_MONTHS = {
   'ינואר': 1, 'פברואר': 2, 'מרץ': 3, 'אפריל': 4,
@@ -48,9 +47,10 @@ export const extractBillingDate = (rows, regex) => {
 //   'invalid-amount'            detail: { merchant, rawAmount }; the row is skipped
 export function parseIsracardSheet(json, { merchantCategoryMap, onWarn = noop } = {}) {
   let headerCell = null;
-  for (let r = 0; r < Math.min(6, json.length) && !headerCell; r++) {
+  const cols = IMPORT_COLUMNS[SOURCE.ISRACARD];
+  for (let r = 0; r < Math.min(cols.headerScanRows, json.length) && !headerCell; r++) {
     const row = json[r] || [];
-    for (let c = 0; c < Math.min(8, row.length); c++) {
+    for (let c = 0; c < Math.min(cols.headerScanColumns, row.length); c++) {
       const cell = row[c];
       if (typeof cell === 'string') {
         const parts = cell.trim().split(/\s+/);
@@ -76,7 +76,7 @@ export function parseIsracardSheet(json, { merchantCategoryMap, onWarn = noop } 
     return [];
   }
 
-  const billingStr = extractBillingDate(json.slice(0, 6), ISRACARD_BILLING_REGEX);
+  const billingStr = extractBillingDate(json.slice(0, cols.headerScanRows), ISRACARD_BILLING_REGEX);
 
   const chargeDateStr = computeIsracardChargeDate({ headerYear, headerMonth, billingStr });
   const postingDate = getLastDayOfPreviousMonth(chargeDateStr);
@@ -85,14 +85,13 @@ export function parseIsracardSheet(json, { merchantCategoryMap, onWarn = noop } 
     return [];
   }
 
-  const indexes = { date: 0, merchant: 1, amount: 4 };
-  const dataRows = json.slice(9);
+  const dataRows = json.slice(cols.firstDataRow);
   const results = [];
 
   for (const [rowIndex, row] of dataRows.entries()) {
-    const rawDate = row[indexes.date];
-    const rawMerchant = row[indexes.merchant];
-    const rawAmount = row[indexes.amount];
+    const rawDate = row[cols.date];
+    const rawMerchant = row[cols.merchant];
+    const rawAmount = row[cols.amount];
 
     const looksLikeDate =
       typeof rawDate === 'string' &&
@@ -125,8 +124,8 @@ export function parseIsracardSheet(json, { merchantCategoryMap, onWarn = noop } 
         category,
         amount: fromAgorot(amountAgorot),
         amountAgorot,
-        type: amountNum > 0 ? TX_TYPE.EXPENSE : TX_TYPE.INCOME,
-        source: 'isracard',
+        type: amountNum > 0 ? TYPE.EXPENSE : TYPE.INCOME,
+        source: SOURCE.ISRACARD,
         ...(category ? {} : { notes: NOTE_FILL_CATEGORY }),
       },
     });
@@ -139,16 +138,16 @@ export function parseIsracardSheet(json, { merchantCategoryMap, onWarn = noop } 
 //   'max-no-posting-date'  detail: { rawChargeDate, parsedChargeDate, merchant }
 //   'invalid-amount'       detail: { merchant, rawAmount }; the row is skipped
 export function parseMaxSheet(json, { onWarn = noop } = {}) {
-  // In a Max file the fourth row holds the column headers, so data starts at index 4.
-  const dataRows = json.slice(4);
+  const cols = IMPORT_COLUMNS[SOURCE.MAX];
+  const dataRows = json.slice(cols.firstDataRow);
   const results = [];
 
   for (const [rowIndex, row] of dataRows.entries()) {
-    const rawTransactionDate = row[0];
-    const rawMerchant = row[1];
-    const rawCategory = row[2];
-    const rawAmount = row[5];
-    const rawChargeDate = row[9];
+    const rawTransactionDate = row[cols.date];
+    const rawMerchant = row[cols.merchant];
+    const rawCategory = row[cols.category];
+    const rawAmount = row[cols.amount];
+    const rawChargeDate = row[cols.chargeDate];
 
     // Skip empty rows and rows that are not transactions.
     if (
@@ -194,8 +193,8 @@ export function parseMaxSheet(json, { onWarn = noop } = {}) {
         category,
         amount: fromAgorot(amountAgorot),
         amountAgorot,
-        type: amountNum > 0 ? TX_TYPE.EXPENSE : TX_TYPE.INCOME,
-        source: 'max',
+        type: amountNum > 0 ? TYPE.EXPENSE : TYPE.INCOME,
+        source: SOURCE.MAX,
       },
     });
   }

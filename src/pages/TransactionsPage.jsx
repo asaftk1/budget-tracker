@@ -15,6 +15,7 @@ import 'dayjs/locale/he';
 import { parseIsracardSheet, parseMaxSheet } from '../lib/statementParsers';
 import { buildTransactionId } from '../lib/transactionId';
 import { dedupeCategories } from '../lib/categories';
+import { SOURCE } from '../constants';
 import { amountError, formatMoney, getAgorot, fromAgorot, MAX_AMOUNT_AGOROT } from '../lib/money';
 
 // Form messages for amountError() codes.
@@ -139,9 +140,9 @@ export default function TransactionsPage() {
         if (json.length < 2) continue;
 
         let parsed = [];
-        if (cardType === 'isracard') {
+        if (cardType === SOURCE.ISRACARD) {
           parsed = parseIsracardSheet(json, { merchantCategoryMap, onWarn: warnImport });
-        } else if (cardType === 'max') {
+        } else if (cardType === SOURCE.MAX) {
           parsed = parseMaxSheet(json, { onWarn: warnImport });
         }
 
@@ -341,8 +342,8 @@ export default function TransactionsPage() {
 
               {!cardType ? (
                 <div className="flex flex-col gap-3">
-                  <Button onClick={() => setCardType('max')} className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold border border-gray-300">💳 Max</Button>
-                  <Button onClick={() => setCardType('isracard')} className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold border border-gray-300">💳 ישראכרט</Button>
+                  <Button onClick={() => setCardType(SOURCE.MAX)} className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold border border-gray-300">💳 Max</Button>
+                  <Button onClick={() => setCardType(SOURCE.ISRACARD)} className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold border border-gray-300">💳 ישראכרט</Button>
                 </div>
               ) : (
                 <div className="flex flex-col gap-3 mt-4">

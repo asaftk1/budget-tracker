@@ -1,7 +1,7 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import TransactionRow from './TransactionRow';
-import { TX_TYPE } from '../lib/statementParsers';
+import { TYPE } from '../constants';
 
 const plain = (s) => s.replace(/[\u200e\u200f]/g, '').replace(/\u00a0/g, ' ');
 
@@ -9,8 +9,8 @@ beforeEach(() => {
   global.IS_REACT_ACT_ENVIRONMENT = true;
 });
 
-const expense = { id: 't1', merchant: 'Shop A', category: 'food', amount: 12.5, type: TX_TYPE.EXPENSE };
-const income = { id: 't2', merchant: 'Boss', category: '', amount: 1000, type: TX_TYPE.INCOME };
+const expense = { id: 't1', merchant: 'Shop A', category: 'food', amount: 12.5, type: TYPE.EXPENSE };
+const income = { id: 't2', merchant: 'Boss', category: '', amount: 1000, type: TYPE.INCOME };
 
 async function render(ui, wrap = (x) => x) {
   const container = document.createElement('div');
@@ -34,7 +34,7 @@ describe('TransactionRow card variant', () => {
     expect(c.textContent).toContain('Shop A');
     expect(c.textContent).toContain('food');
     expect(plain(c.textContent)).toContain('12.50 ₪');
-    expect(c.querySelector('.text-red-500').textContent).toBe(TX_TYPE.EXPENSE);
+    expect(c.querySelector('.text-red-500').textContent).toBe(TYPE.EXPENSE);
   });
 
   test('amounts come from amountAgorot when present and from legacy amount otherwise', async () => {
@@ -47,7 +47,7 @@ describe('TransactionRow card variant', () => {
 
   test('income is green', async () => {
     const c = await render(<TransactionRow tx={income} variant="card" {...handlers()} />);
-    expect(c.querySelector('.text-green-600').textContent).toBe(TX_TYPE.INCOME);
+    expect(c.querySelector('.text-green-600').textContent).toBe(TYPE.INCOME);
   });
 
   test('a transaction without a category shows a dash and the missing-category button', async () => {
@@ -86,7 +86,7 @@ describe('TransactionRow table variant', () => {
     const c = await render(<TransactionRow tx={expense} variant="table" {...handlers()} />, asTable);
     const cells = [...c.querySelectorAll('td')];
     expect(cells).toHaveLength(5);
-    expect(cells.slice(0, 4).map((td) => plain(td.textContent))).toEqual(['Shop A', 'food', '12.50 ₪', TX_TYPE.EXPENSE]);
+    expect(cells.slice(0, 4).map((td) => plain(td.textContent))).toEqual(['Shop A', 'food', '12.50 ₪', TYPE.EXPENSE]);
   });
 
   test('zebra striping follows the index', async () => {
