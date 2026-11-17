@@ -24,4 +24,6 @@ yarn-error.log*
 src/serviceAccount.json
 .env
 *.env
-.env.local
+
+# firebase
+.firebase/

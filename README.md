@@ -33,3 +33,40 @@ Built with **React + Firebase**.
 
 ---
 
+
+---
+
+## 🚀 Setup
+
+**Requirements:** Node 18+ and a Firebase project (Auth with Email/Password + Google, and Firestore).
+
+```bash
+npm install
+npm start          # dev server on http://localhost:3000
+npm run build      # production build into ./build
+npm test           # test runner (no tests yet)
+```
+
+Firebase web config lives in `src/firebase.js`. Replace it with your own project's values and
+update `.firebaserc`. Deploy with `firebase deploy --only hosting` after `npm run build`.
+
+> The app queries Firestore directly from the browser, so **Firestore security rules must
+> restrict every document to its owner** (`uid == request.auth.uid`). The rules are not yet in this repo.
+
+## 🗂️ Data model (Firestore)
+
+| Collection | Fields |
+|---|---|
+| `transactions` | `uid`, `date` (`YYYY-MM-DD`), `type` (`הכנסה` / `הוצאה`), `amount` (number), `category`, `merchant`, `source` (`isracard`/`max`), `originalDate`, `chargeDate`, `notes` |
+| `categories` | `uid`, `name` |
+| `merchantCategories` | `uid`, `merchant`, `merchantNormalized`, `category` (doc id: `<uid>_<merchant>`) |
+
+## 📂 Credit card import
+
+Transactions → "ייבוא קובץ אשראי", choose **Max** or **Isracard**, then upload the `.xlsx` statement
+exported from the card's website. Column positions are hard-coded for the current export formats.
+Re-importing the same file creates duplicates.
+
+## 🧠 Optional ML service
+
+`src/category_api.py` (Flask) and `src/smart_reclassify.py` are standalone helper scripts, not part of the web app.
