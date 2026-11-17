@@ -45,6 +45,7 @@ beforeEach(() => {
 const flush = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
 const click = (el) => act(async () => { el.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
 const buttonWith = (text) => [...document.body.querySelectorAll('button')].find((b) => b.textContent.includes(text));
+const buttonExact = (text) => [...document.body.querySelectorAll('button')].find((b) => b.textContent.trim() === text);
 const setInput = (el, value) => act(async () => {
   Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value').set.call(el, value);
   el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -54,8 +55,8 @@ async function openAddForm() {
   const container = document.createElement('div');
   document.body.appendChild(container);
   await act(async () => { createRoot(container).render(<TransactionsPage />); });
-  await click(buttonWith('➕'));
-  await click(buttonWith('💸'));
+  await click(buttonWith('הוסף פעולה'));
+  await click(buttonWith('הוצאה'));
   await setInput(document.body.querySelector('input[name=date]'), '2025-03-05');
   await setInput(document.body.querySelector('input[name=category]'), 'food');
 }
@@ -175,7 +176,7 @@ describe('search', () => {
     document.body.appendChild(container);
     await act(async () => { createRoot(container).render(<TransactionsPage />); });
   }
-  const openSearch = () => click(buttonWith('🔍'));
+  const openSearch = () => click(buttonWith('חיפוש'));
 
   test('without a search it shows the selected month only, with no indicator', async () => {
     await renderPage();
@@ -208,8 +209,8 @@ describe('search', () => {
     await setInput(document.body.querySelector('#search-category'), 'food');
     await click(document.body.querySelector('[role=dialog] button[aria-label], [role=dialog] button'));
     // The add form starts empty even after a category was typed into the search.
-    await click(buttonWith('➕ הוסף'));
-    await click(buttonWith('💸'));
+    await click(buttonWith('הוסף פעולה'));
+    await click(buttonWith('הוצאה'));
     expect(document.body.querySelector('input[name=category]').value).toBe('');
   });
 
@@ -241,8 +242,8 @@ describe('loading, error and empty states', () => {
   test('loading shows a Hebrew status, and the add and import buttons stay available', async () => {
     await render({ loading: true });
     expect(status()).toContain('טוען');
-    expect(buttonWith('➕ הוסף')).toBeTruthy();
-    expect(buttonWith('📂')).toBeTruthy();
+    expect(buttonWith('הוסף פעולה')).toBeTruthy();
+    expect(buttonWith('ייבוא קובץ')).toBeTruthy();
   });
 
   test('no transactions at all shows the empty message', async () => {
@@ -296,11 +297,11 @@ describe('import result', () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     await act(async () => { createRoot(container).render(<TransactionsPage />); });
-    await click(buttonWith('📂'));
+    await click(buttonWith('ייבוא קובץ'));
     await click(buttonWith('Max'));
     const input = document.body.querySelector('input[type=file]');
     await pickFile(input, xlsxFile());
-    await click(buttonWith('📥'));
+    await click(buttonExact('ייבוא'));
     await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
   }
 
@@ -355,7 +356,7 @@ describe('import result', () => {
   test('closing the result and reopening the dialog starts fresh', async () => {
     await runImport({ parsed: { rows: parsedRows(1) }, commit: async (pending) => pending.length });
     await click(buttonWith('סגור'));
-    await click(buttonWith('📂'));
+    await click(buttonWith('ייבוא קובץ'));
     expect(statuses()).not.toContain('יובא');
     expect(buttonWith('Max')).toBeTruthy();
   });
@@ -377,12 +378,12 @@ describe('import file problems', () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     await act(async () => { createRoot(container).render(<TransactionsPage />); });
-    await click(buttonWith('📂'));
+    await click(buttonWith('ייבוא קובץ'));
     await click(buttonWith('Max'));
     return document.body.querySelector('input[type=file]');
   }
   const runImport = async () => {
-    await click(buttonWith('📥'));
+    await click(buttonExact('ייבוא'));
     await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
   };
 
@@ -419,7 +420,7 @@ describe('import file problems', () => {
     await runImport();
     expect(alerts()).toContain('לא הצלחנו לקרוא את הקובץ');
     expect(commitTransactions).not.toHaveBeenCalled();
-    expect(buttonWith('📥')).toBeTruthy();
+    expect(buttonExact('ייבוא')).toBeTruthy();
     expect(document.body.textContent).not.toContain('הייבוא הסתיים');
   });
 
@@ -456,7 +457,7 @@ describe('import file problems', () => {
   test('going back and reopening the dialog clears the error', async () => {
     const input = await openFileStep();
     await pickFile(input, xlsxFile('a.xls'));
-    await click(buttonWith('🔙'));
+    await click(buttonWith('חזור'));
     await click(buttonWith('Max'));
     expect(alerts()).toBe('');
   });
@@ -490,7 +491,7 @@ describe('labels', () => {
     document.body.appendChild(container);
     await act(async () => { createRoot(container).render(<TransactionsPage />); });
 
-    await click(buttonWith('🔍'));
+    await click(buttonWith('חיפוש'));
     for (const id of ['search-text', 'search-category', 'search-from', 'search-to']) {
       expect(document.body.querySelector(`label[for=${id}]`)).not.toBeNull();
       expect(document.getElementById(id)).not.toBeNull();

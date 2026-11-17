@@ -1,3 +1,4 @@
+import { Plus, TrendingDown, TrendingUp } from 'lucide-react';
 import { Button } from './ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Input } from './ui/input';
@@ -32,7 +33,7 @@ export default function TransactionDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button className="bg-green-500 text-white">➕ הוסף פעולה</Button>
+        <Button><Plus size={18} aria-hidden="true" />הוסף פעולה</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
@@ -40,12 +41,16 @@ export default function TransactionDialog({
         </DialogHeader>
 
         {step === 0 ? (
-          <div className="flex flex-col gap-4 mt-4">
-            <Button className="bg-green-500 hover:bg-green-500 text-lg" onClick={() => onSelectType(TYPE.INCOME)}>💰 הכנסה</Button>
-            <Button className="bg-red-500 hover:bg-red-500 text-lg" onClick={() => onSelectType(TYPE.EXPENSE)}>💸 הוצאה</Button>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <Button variant="outline" className="h-auto flex-col gap-2 py-5 text-base" onClick={() => onSelectType(TYPE.INCOME)}>
+              <TrendingUp size={24} className="text-income" aria-hidden="true" />הכנסה
+            </Button>
+            <Button variant="outline" className="h-auto flex-col gap-2 py-5 text-base" onClick={() => onSelectType(TYPE.EXPENSE)}>
+              <TrendingDown size={24} className="text-expense" aria-hidden="true" />הוצאה
+            </Button>
           </div>
         ) : (
-          <form className="space-y-3 mt-4" noValidate onSubmit={handleSubmit}>
+          <form className="mt-4 space-y-4" noValidate onSubmit={handleSubmit}>
             <div>
               <Label htmlFor="transaction-date">תאריך</Label>
               <Input id="transaction-date" type="date" name="date" value={formData.date} onChange={onChange} />
@@ -58,7 +63,6 @@ export default function TransactionDialog({
                 name="category"
                 value={formData.category}
                 onChange={onChange}
-                className="text-base focus:scale-100 transition-transform"
               />
               <datalist id="category-options">
                 {categories.map((cat, idx) => (
@@ -83,13 +87,13 @@ export default function TransactionDialog({
                 aria-describedby={amountError ? 'amount-error' : undefined}
               />
               {amountError && (
-                <p id="amount-error" role="alert" className="text-red-600 text-sm mt-1">{amountError}</p>
+                <p id="amount-error" role="alert" className="mt-1 text-sm text-danger">{amountError}</p>
               )}
             </div>
             {saveError && (
-              <p role="alert" className="text-red-600 text-sm">{saveError}</p>
+              <p role="alert" className="text-sm text-danger">{saveError}</p>
             )}
-            <Button type="submit" className="w-full bg-green-600 text-white mt-2">שמור</Button>
+            <Button type="submit" className="mt-2 w-full">שמור</Button>
           </form>
         )}
       </DialogContent>

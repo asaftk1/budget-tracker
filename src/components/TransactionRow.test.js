@@ -34,7 +34,7 @@ describe('TransactionRow card variant', () => {
     expect(c.textContent).toContain('Shop A');
     expect(c.textContent).toContain('food');
     expect(plain(c.textContent)).toContain('12.50 ₪');
-    expect(c.querySelector('.text-red-500').textContent).toBe(TYPE.EXPENSE);
+    expect(c.querySelector('.text-expense').textContent).toBe(TYPE.EXPENSE);
   });
 
   test('amounts come from amountAgorot when present and from legacy amount otherwise', async () => {
@@ -47,7 +47,7 @@ describe('TransactionRow card variant', () => {
 
   test('income is green', async () => {
     const c = await render(<TransactionRow tx={income} variant="card" {...handlers()} />);
-    expect(c.querySelector('.text-green-600').textContent).toBe(TYPE.INCOME);
+    expect(c.querySelector('.text-income').textContent).toBe(TYPE.INCOME);
   });
 
   test('a transaction without a category shows a dash and the missing-category button', async () => {

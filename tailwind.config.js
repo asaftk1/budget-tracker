@@ -42,11 +42,8 @@ module.exports = {
         },
         ring: token("ring"),
 
-        // Existing markup and tests use text-green-600 / bg-green-600 as the brand green. Point
-        // that shade at the primary token so it gets the accessible value everywhere at once.
-        green: { 600: token("primary") },
-        // Temporary: the pages still set bg-gray-50 as their own background. Pointing it at the
-        // canvas keeps them the same colour as the layout until each page drops its wrapper.
+        // Temporary: Analytics and Categories still use bg-gray-50, and the table rows keep it as
+        // the zebra class a test pins. Pointing it at the canvas keeps them in the page colour.
         gray: { 50: token("canvas") },
       },
       borderColor: {

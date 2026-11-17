@@ -41,8 +41,8 @@ describe('TransactionDialog', () => {
     const props = baseProps();
     await render(props);
     expect(document.body.querySelector('input')).toBeNull();
-    await click(buttonWith('💰'));
-    await click(buttonWith('💸'));
+    await click(buttonWith('הכנסה'));
+    await click(buttonWith('הוצאה'));
     expect(props.onSelectType.mock.calls).toEqual([[TYPE.INCOME], [TYPE.EXPENSE]]);
   });
 
@@ -106,7 +106,7 @@ describe('TransactionDialog', () => {
       amount.dispatchEvent(new Event('input', { bubbles: true }));
     });
     expect(props.onChange).toHaveBeenCalledTimes(1);
-    const save = [...document.body.querySelectorAll('button')].find((b) => b.className.includes('bg-green-600'));
+    const save = document.body.querySelector('button[type=submit]');
     await click(save);
     expect(props.onSave).toHaveBeenCalledTimes(1);
   });

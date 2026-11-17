@@ -2,7 +2,9 @@
 import { useMemo, useState } from 'react';
 import { getAuth } from 'firebase/auth';
 import useTransactions, { loadMerchantCategoryMap, commitTransactions } from '../hooks/useTransactions';
+import { ArrowRight, CreditCard, Eraser, Search, Table, Upload } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { Card } from '../components/ui/card';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -16,6 +18,7 @@ import 'dayjs/locale/he';
 import { parseIsracardSheet, parseMaxSheet } from '../lib/statementParsers';
 import { buildTransactionId } from '../lib/transactionId';
 import { dedupeCategories } from '../lib/categories';
+import { formatDisplayDate } from '../lib/formatDate';
 import { groupTransactionsByDate, groupTransactionsByDay } from '../lib/summaries';
 import { EMPTY_FILTERS, filterTransactions, hasActiveFilter } from '../lib/filterTransactions';
 import { SOURCE } from '../constants';
@@ -341,44 +344,57 @@ export default function TransactionsPage() {
     setMissingCatValue('');
   };
 
+  const days = Object.keys(groupedByDate);
+
   return (
-    <div dir="rtl" className="p-6 bg-gray-50 min-h-screen">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-4">
-        <h2 className="text-2xl font-bold">כל הפעולות</h2>
-        <div className="flex gap-2 items-center">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">כל הפעולות</h1>
+        <div className="flex flex-wrap items-center gap-2">
           <Dialog>
             <DialogTrigger asChild>
-              <Button className="bg-black border text-gray-700 hover:bg-gray-100">🔍 חיפוש</Button>
+              <Button variant="outline"><Search size={18} aria-hidden="true" />חיפוש</Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[400px]">
               <DialogHeader>
                 <DialogTitle>חיפוש פעולות</DialogTitle>
               </DialogHeader>
 
-              <div className="space-y-3 mt-4">
-                <Label htmlFor="search-text">טקסט (בית עסק, תיאור או קטגוריה)</Label>
-                <Input id="search-text" value={search.text} onChange={updateSearch('text')} />
+              <div className="mt-4 space-y-4">
+                <div>
+                  <Label htmlFor="search-text">טקסט (בית עסק, תיאור או קטגוריה)</Label>
+                  <Input id="search-text" value={search.text} onChange={updateSearch('text')} />
+                </div>
 
-                <Label htmlFor="search-category">קטגוריה</Label>
-                <Input
-                  id="search-category"
-                  list="categories"
-                  value={search.category}
-                  onChange={updateSearch('category')}
-                />
-                <datalist id="categories">
-                  {categoryOptions.map((cat) => (
-                    <option key={cat} value={cat} />
-                  ))}
-                </datalist>
+                <div>
+                  <Label htmlFor="search-category">קטגוריה</Label>
+                  <Input
+                    id="search-category"
+                    list="categories"
+                    value={search.category}
+                    onChange={updateSearch('category')}
+                  />
+                  <datalist id="categories">
+                    {categoryOptions.map((cat) => (
+                      <option key={cat} value={cat} />
+                    ))}
+                  </datalist>
+                </div>
 
-                <Label htmlFor="search-from">מתאריך</Label>
-                <Input id="search-from" type="date" value={search.from} onChange={updateSearch('from')} />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="search-from">מתאריך</Label>
+                    <Input id="search-from" type="date" value={search.from} onChange={updateSearch('from')} />
+                  </div>
+                  <div>
+                    <Label htmlFor="search-to">עד תאריך</Label>
+                    <Input id="search-to" type="date" value={search.to} onChange={updateSearch('to')} />
+                  </div>
+                </div>
 
-                <Label htmlFor="search-to">עד תאריך</Label>
-                <Input id="search-to" type="date" value={search.to} onChange={updateSearch('to')} />
-
-                <Button onClick={() => setSearch(EMPTY_FILTERS)}>🧹 נקה חיפוש</Button>
+                <Button variant="outline" className="w-full" onClick={() => setSearch(EMPTY_FILTERS)}>
+                  <Eraser size={16} aria-hidden="true" />נקה חיפוש
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -398,7 +414,7 @@ export default function TransactionsPage() {
 
           <Dialog open={importDialogOpen} onOpenChange={handleImportDialogOpenChange}>
             <DialogTrigger asChild>
-              <Button className="bg-blue-500 text-white">📂 ייבוא קובץ אשראי</Button>
+              <Button variant="secondary"><Upload size={18} aria-hidden="true" />ייבוא קובץ אשראי</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -406,25 +422,37 @@ export default function TransactionsPage() {
               </DialogHeader>
 
               {importResult ? (
-                <div className="flex flex-col gap-3 mt-4">
+                <div className="mt-4 flex flex-col gap-4">
                   <div role={importResult.tone === 'success' || importResult.tone === 'info' ? 'status' : 'alert'}
-                    className={importResult.tone === 'success' || importResult.tone === 'info' ? 'text-gray-800' : 'text-red-700'}>
+                    className={importResult.tone === 'success' || importResult.tone === 'info' ? 'text-foreground' : 'text-danger'}>
                     {importResult.lines.map((line) => <p key={line} className="mb-1">{line}</p>)}
                   </div>
                   <Button onClick={() => handleImportDialogOpenChange(false)}>סגור</Button>
                 </div>
               ) : !cardType ? (
-                <div className="flex flex-col gap-3">
-                  <Button onClick={() => setCardType(SOURCE.MAX)} className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold border border-gray-300">💳 Max</Button>
-                  <Button onClick={() => setCardType(SOURCE.ISRACARD)} className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold border border-gray-300">💳 ישראכרט</Button>
+                <div className="mt-4 flex flex-col gap-3">
+                  <Button variant="outline" size="lg" onClick={() => setCardType(SOURCE.MAX)} className="justify-start">
+                    <CreditCard size={20} aria-hidden="true" />Max
+                  </Button>
+                  <Button variant="outline" size="lg" onClick={() => setCardType(SOURCE.ISRACARD)} className="justify-start">
+                    <CreditCard size={20} aria-hidden="true" />ישראכרט
+                  </Button>
                 </div>
               ) : (
-                <div className="flex flex-col gap-3 mt-4">
-                  <p id="import-file-label" className="text-gray-700 font-medium">בחר קובץ מסוג XLSX</p>
-                  <input type="file" accept=".xlsx" aria-labelledby="import-file-label" onChange={handleFileSelection} className="border p-1 rounded" />
-                  {importError && <p role="alert" className="text-red-600 text-sm">{importError}</p>}
-                  <Button onClick={handleProcessImport} className="bg-green-500 text-white">📥 ייבוא</Button>
-                  <Button onClick={() => { setCardType(''); setSelectedFile(null); setImportError(''); }}>🔙 חזור</Button>
+                <div className="mt-4 flex flex-col gap-3">
+                  <p id="import-file-label" className="font-medium text-foreground">בחר קובץ מסוג XLSX</p>
+                  <input
+                    type="file"
+                    accept=".xlsx"
+                    aria-labelledby="import-file-label"
+                    onChange={handleFileSelection}
+                    className="block w-full rounded-control border border-input bg-background p-2 text-sm file:me-3 file:rounded-control file:border-0 file:bg-primary-soft file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary"
+                  />
+                  {importError && <p role="alert" className="text-sm text-danger">{importError}</p>}
+                  <Button onClick={handleProcessImport}><Upload size={18} aria-hidden="true" />ייבוא</Button>
+                  <Button variant="outline" onClick={() => { setCardType(''); setSelectedFile(null); setImportError(''); }}>
+                    <ArrowRight size={18} aria-hidden="true" />חזור
+                  </Button>
                 </div>
               )}
             </DialogContent>
@@ -432,24 +460,29 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded shadow p-4">
-        <h3 className="text-xl font-semibold mb-4">📋 טבלת פעולות</h3>
-        {deleteError && <p role="alert" className="text-red-600 text-sm mb-2">{deleteError}</p>}
+      <Card className="p-4 sm:p-6">
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
+          <Table size={20} className="text-muted-foreground" aria-hidden="true" />
+          טבלת פעולות
+        </h2>
+        {deleteError && <p role="alert" className="mb-3 text-sm text-danger">{deleteError}</p>}
         {searchActive && (
-          <div role="status" className="mb-4 flex items-center gap-3 bg-blue-50 border border-blue-200 rounded px-3 py-2 text-sm">
+          <div role="status" className="mb-4 flex flex-wrap items-center gap-3 rounded-control border border-primary/30 bg-primary-soft px-3 py-2 text-sm text-foreground">
+            <Search size={16} className="text-primary" aria-hidden="true" />
             <span>מציג תוצאות חיפוש מכל החודשים</span>
-            <Button onClick={() => setSearch(EMPTY_FILTERS)}>נקה חיפוש</Button>
+            <Button size="sm" variant="outline" onClick={() => setSearch(EMPTY_FILTERS)}>נקה חיפוש</Button>
           </div>
         )}
-        <div className="mb-4">
-          <label htmlFor="selected-month" className="font-semibold mr-2">בחר שנה וחודש:</label>
-          <input
+        <div className="mb-6 flex items-center gap-2">
+          <label htmlFor="selected-month" className="text-sm font-medium text-foreground">בחר שנה וחודש:</label>
+          <Input
             id="selected-month"
             type="month"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
             disabled={searchActive}
-            className="border px-2 py-1 rounded"
+            inputSize="sm"
+            className="max-w-[11rem]"
           />
         </div>
 
@@ -460,42 +493,62 @@ export default function TransactionsPage() {
           isEmpty={transactions.length === 0}
           emptyMessage="אין עדיין פעולות. הוסף/י פעולה או ייבא/י קובץ אשראי."
         >
-        {searchActive && Object.keys(groupedByDate).length === 0 && (
-          <p className="text-gray-600">לא נמצאו תוצאות</p>
+        {searchActive && days.length === 0 && (
+          <p className="text-muted-foreground">לא נמצאו תוצאות</p>
         )}
-        {!searchActive && Object.keys(groupedByDate).length === 0 && (
-          <p className="text-gray-600">אין פעולות בחודש הזה</p>
+        {!searchActive && days.length === 0 && (
+          <p className="text-muted-foreground">אין פעולות בחודש הזה</p>
         )}
 
-        {Object.keys(groupedByDate).map(date => (
-          <div key={date} className="mb-6">
-            <h4 className="text-lg font-bold mb-2 border-b pb-1 text-green-700">{date}</h4>
+        {/* Mobile: one card per transaction under a heading for each day */}
+        <div className="space-y-6 md:hidden">
+          {days.map(date => (
+            <section key={date}>
+              <h3 className="mb-2 text-sm font-semibold text-muted-foreground">{formatDisplayDate(date)}</h3>
+              <div className="space-y-3">
+                {groupedByDate[date].map((tx) => (
+                  <TransactionRow
+                    key={tx.id}
+                    tx={tx}
+                    variant="card"
+                    onEdit={handleEdit}
+                    onDelete={setPendingDeleteId}
+                    onMissingCategory={handleOpenMissingCat}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
 
-            <div className="md:hidden space-y-3">
-              {groupedByDate[date].map((tx) => (
-                <TransactionRow
-                  key={tx.id}
-                  tx={tx}
-                  variant="card"
-                  onEdit={handleEdit}
-                  onDelete={setPendingDeleteId}
-                  onMissingCategory={handleOpenMissingCat}
-                />
-              ))}
-            </div>
-
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-right border border-gray-200 text-sm border-collapse">
-                <thead>
-                  <tr className="bg-gray-100 border-b text-right">
-                    <th className="p-2 text-sm">בית עסק</th>
-                    <th className="p-2 text-sm">קטגוריה</th>
-                    <th className="p-2 text-sm">סכום</th>
-                    <th className="p-2 text-sm">סוג</th>
-                    <th className="p-2 text-sm text-left">🗑️</th>
+        {/* Desktop: one table, fixed column widths, one body per day with its date as a heading
+            row, so the columns line up across days */}
+        {days.length > 0 && (
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full table-fixed border-collapse text-sm">
+              <colgroup>
+                <col className="w-[28%]" />
+                <col className="w-[28%]" />
+                <col className="w-[16%]" />
+                <col className="w-[14%]" />
+                <col className="w-[14%]" />
+              </colgroup>
+              <thead>
+                <tr className="border-b text-muted-foreground">
+                  <th scope="col" className="px-3 py-2 text-start text-xs font-medium">בית עסק</th>
+                  <th scope="col" className="px-3 py-2 text-start text-xs font-medium">קטגוריה</th>
+                  <th scope="col" className="px-3 py-2 text-start text-xs font-medium">סכום</th>
+                  <th scope="col" className="px-3 py-2 text-start text-xs font-medium">סוג</th>
+                  <th scope="col" className="px-3 py-2 text-end text-xs font-medium"><span className="sr-only">פעולות</span></th>
+                </tr>
+              </thead>
+              {days.map(date => (
+                <tbody key={date}>
+                  <tr>
+                    <th scope="colgroup" colSpan={5} className="px-3 pb-1 pt-5 text-start text-sm font-semibold text-foreground">
+                      {formatDisplayDate(date)}
+                    </th>
                   </tr>
-                </thead>
-                <tbody>
                   {groupedByDate[date].map((tx, i) => (
                     <TransactionRow
                       key={tx.id}
@@ -508,12 +561,12 @@ export default function TransactionsPage() {
                     />
                   ))}
                 </tbody>
-              </table>
-            </div>
+              ))}
+            </table>
           </div>
-        ))}
+        )}
         </PageState>
-      </div>
+      </Card>
 
       {pendingDeleteId && (
         <ConfirmDialog
@@ -528,9 +581,9 @@ export default function TransactionsPage() {
           <DialogHeader>
             <DialogTitle>לא נמצאה קטגוריה במפה</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 mt-2">
-            <div className="text-sm text-gray-700">
-              בית עסק: <span className="font-semibold">{missingCatTx?.merchant || '—'}</span>
+          <div className="mt-4 space-y-4">
+            <div className="text-sm text-muted-foreground">
+              בית עסק: <span className="font-semibold text-foreground">{missingCatTx?.merchant || '—'}</span>
             </div>
             <div>
               <Label htmlFor="missingCat">הזן קטגוריה</Label>
@@ -543,7 +596,7 @@ export default function TransactionsPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setMissingCatOpen(false)}>בטל</Button>
-              <Button className="bg-green-600 text-white" onClick={handleSaveMissingCat}>שמור</Button>
+              <Button onClick={handleSaveMissingCat}>שמור</Button>
             </div>
           </div>
         </DialogContent>
