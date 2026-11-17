@@ -102,8 +102,13 @@ describe('TransactionRow table variant', () => {
   test('zebra striping follows the index', async () => {
     const even = await render(<TransactionRow tx={expense} variant="table" index={0} {...handlers()} />, asTable);
     const odd = await render(<TransactionRow tx={expense} variant="table" index={1} {...handlers()} />, asTable);
-    expect(even.querySelector('tr').className).toBe('bg-gray-50');
-    expect(odd.querySelector('tr').className).toBe('');
+    expect(even.querySelector('tr').className).toContain('bg-canvas');
+    expect(odd.querySelector('tr').className).not.toContain('bg-canvas');
+  });
+
+  test('every row has a hover style', async () => {
+    const row = await render(<TransactionRow tx={expense} variant="table" index={1} {...handlers()} />, asTable);
+    expect(row.querySelector('tr').className).toContain('hover:bg-muted');
   });
 
   test('missing-category button and actions work in the table too', async () => {

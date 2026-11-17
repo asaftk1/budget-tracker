@@ -84,7 +84,7 @@ export default function TransactionRow({ tx, variant, index = 0, onEdit, onDelet
   }
 
   return (
-    <tr className={index % 2 === 0 ? 'bg-gray-50' : ''}>
+    <tr className={cn('transition-colors hover:bg-muted', index % 2 === 0 && 'bg-canvas')}>
       <td className="truncate px-3 py-2 text-sm font-semibold text-foreground">{merchantLabel}</td>
       <td className="px-3 py-2 text-sm text-foreground">
         <div className="flex items-center gap-1">
