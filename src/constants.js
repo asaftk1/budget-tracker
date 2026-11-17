@@ -12,9 +12,14 @@ export const UNCATEGORIZED = 'לא מסווג';
 
 // Colours shared by the charts. Slices cycle through palette.
 export const CHART_COLORS = {
-  palette: ['#FF6384', '#36A2EB', '#FFCE56', '#4CAF50', '#FF9800', '#9C27B0', '#795548', '#00BCD4'],
-  income: '#22c55e',
-  expense: '#ef4444',
+  // Colour-blind-safe categorical palette (Okabe-Ito based). Neighbouring slices differ in hue
+  // and in lightness; the grouped "other" slice has its own grey below.
+  palette: ['#0072B2', '#E69F00', '#009E73', '#CC79A7', '#56B4E9', '#D55E00', '#7A5195', '#44505C'],
+  income: '#0f766e', // teal, matches the income token
+  expense: '#c2410c', // vermilion, matches the expense token
+  other: '#9ca3af',
+  axis: '#4b5563', // axis labels
+  grid: '#e4e7e2', // grid lines
 };
 
 // Column and row positions in the credit-card statement exports (zero-based).

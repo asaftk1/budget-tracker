@@ -1,11 +1,15 @@
 import { useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { BarChart3, Clock, PieChart as PieChartIcon, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import Suggestions from '../components/Suggestions';
+import Money, { displayMoney } from '../components/Money';
+import ExpenseBreakdown from '../components/ExpenseBreakdown';
+import { formatDisplayDate } from '../lib/formatDate';
 import dayjs from 'dayjs';
 import { useData } from '../contexts/DataContext';
 import PageState from '../components/PageState';
-import { getAgorot, fromAgorot, formatMoney } from '../lib/money';
+import { getAgorot, fromAgorot } from '../lib/money';
 import { summarizeTransactions, monthKeyOf } from '../lib/summaries';
 import { TYPE, CHART_COLORS } from '../constants';
 
@@ -19,7 +23,7 @@ export default function Dashboard() {
         // The last six months, oldest first.
         const months = Array.from({ length: 6 }, (_, i) => {
             const date = dayjs().startOf('month').subtract(5 - i, 'month').toDate();
-            return { key: monthKeyOf(date), label: date.toLocaleString('default', { month: 'short' }) };
+            return { key: monthKeyOf(date), label: date.toLocaleString('he-IL', { month: 'short' }) };
         });
 
         const summary = summarizeTransactions(transactions, months.map(m => m.key));
@@ -39,22 +43,22 @@ export default function Dashboard() {
 
     const balance = totalIncome - totalExpense;
 
-    const COLORS = CHART_COLORS.palette;
     const pieData = useMemo(
         () => Object.entries(expensesByCategory).map(([category, value]) => ({ name: category, value })),
         [expensesByCategory]
     );
-    const totalExpenses = totalExpense;
-
     // The five most recent transactions.
     const recentTransactions = useMemo(
         () => [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5),
         [transactions]
     );
 
+    // Chart values are shekels; the tooltip and the axis show them through formatMoney.
+    const shekelsToText = (shekels, options) => displayMoney(Math.round(shekels * 100), options);
+
     return (
-        <div dir="rtl" className="min-h-screen bg-gray-50 p-6">
-            <h1 className="text-2xl font-bold mb-6">מעקב הוצאות והכנסות</h1>
+        <div className="space-y-6">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">מעקב הוצאות והכנסות</h1>
 
             <PageState
                 loading={loading}
@@ -64,132 +68,139 @@ export default function Dashboard() {
                 emptyMessage="אין עדיין פעולות. הוסף/י פעולה או ייבא/י קובץ אשראי בעמוד הפעולות."
             >
 
-            {/* Balance Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>יתרה נוכחית</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {formatMoney(balance)}
-                        </p>
-                    </CardContent>
+            {/* Balance cards */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <Card className="p-5">
+                    <div className="flex items-center gap-3">
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-control bg-primary-soft text-primary" aria-hidden="true">
+                            <Wallet size={20} />
+                        </span>
+                        <p className="text-sm font-medium text-muted-foreground">יתרה נוכחית</p>
+                    </div>
+                    <p className={`mt-3 text-3xl font-bold ${balance >= 0 ? 'text-income' : 'text-expense'}`}>
+                        <Money agorot={balance} />
+                    </p>
                 </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>סה״כ הכנסות</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-2xl font-bold text-green-500">{formatMoney(totalIncome)}</p>
-                    </CardContent>
+                <Card className="p-5">
+                    <div className="flex items-center gap-3">
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-control bg-income/10 text-income" aria-hidden="true">
+                            <TrendingUp size={20} />
+                        </span>
+                        <p className="text-sm font-medium text-muted-foreground">סה״כ הכנסות</p>
+                    </div>
+                    <p className="mt-3 text-3xl font-bold text-income"><Money agorot={totalIncome} /></p>
                 </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>סה״כ הוצאות</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-2xl font-bold text-red-500">{formatMoney(totalExpense)}</p>
-                    </CardContent>
+                <Card className="p-5">
+                    <div className="flex items-center gap-3">
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-control bg-expense/10 text-expense" aria-hidden="true">
+                            <TrendingDown size={20} />
+                        </span>
+                        <p className="text-sm font-medium text-muted-foreground">סה״כ הוצאות</p>
+                    </div>
+                    <p className="mt-3 text-3xl font-bold text-expense"><Money agorot={totalExpense} /></p>
                 </Card>
             </div>
 
-            {/* Two Column Layout */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                {/* Recent Transactions */}
-                <Card>
+            {/* Chart and recent transactions */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+                {/* Income vs Expense Chart */}
+                <Card className="lg:col-span-3">
                     <CardHeader>
-                        <CardTitle>📋 פעולות אחרונות</CardTitle>
+                        <CardTitle className="flex items-center gap-2">
+                            <BarChart3 size={20} className="text-muted-foreground" aria-hidden="true" />
+                            הכנסות מול הוצאות (6 חודשים אחרונים)
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <ul className="space-y-3">
-                            {recentTransactions
-                                .map((tx) => (
-                                    <li key={tx.id} className="flex justify-between">
-                                        <div>
-                                            <p className="font-semibold">{tx.category}</p>
-                                            <p className="text-sm text-gray-500">{tx.date}</p>
-                                        </div>
-                                        <span className={`font-bold ${tx.type === TYPE.INCOME ? 'text-green-600' : 'text-red-500'}`}>
-                                            {tx.type === TYPE.INCOME ? '+' : '-'}{formatMoney(getAgorot(tx))}
-                                        </span>
-                                    </li>
-                                ))}
+                        {/* The chart is drawn left to right; the time axis and the value axis are
+                            mirrored below so it reads from the right, like the page. */}
+                        <div dir="ltr" role="img" aria-label="גרף עמודות של הכנסות והוצאות בששת החודשים האחרונים">
+                            <ResponsiveContainer width="100%" height={280}>
+                                <BarChart data={chartData} barGap={4} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                                    <CartesianGrid vertical={false} stroke={CHART_COLORS.grid} />
+                                    <XAxis
+                                        dataKey="month"
+                                        reversed
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tick={{ fill: CHART_COLORS.axis, fontSize: 12 }}
+                                    />
+                                    <YAxis
+                                        orientation="right"
+                                        width={88}
+                                        domain={[0, 'auto']}
+                                        allowDecimals={false}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tick={{ fill: CHART_COLORS.axis, fontSize: 12 }}
+                                        tickFormatter={(v) => shekelsToText(v, { fractionDigits: 0 })}
+                                    />
+                                    <Tooltip
+                                        formatter={(v) => shekelsToText(v)}
+                                        cursor={{ fill: 'rgba(20, 32, 26, 0.04)' }}
+                                        contentStyle={{ direction: 'rtl', borderRadius: 12, borderColor: CHART_COLORS.grid }}
+                                    />
+                                    <Legend
+                                        verticalAlign="top"
+                                        align="right"
+                                        iconType="circle"
+                                        wrapperStyle={{ direction: 'rtl', paddingBottom: 8 }}
+                                    />
+                                    <Bar dataKey="income" fill={CHART_COLORS.income} name="הכנסה" radius={[6, 6, 0, 0]} maxBarSize={28} />
+                                    <Bar dataKey="expense" fill={CHART_COLORS.expense} name="הוצאה" radius={[6, 6, 0, 0]} maxBarSize={28} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Recent Transactions */}
+                <Card className="lg:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Clock size={20} className="text-muted-foreground" aria-hidden="true" />
+                            פעולות אחרונות
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <ul className="divide-y">
+                            {recentTransactions.map((tx) => (
+                                <li key={tx.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                                    <div className="min-w-0">
+                                        <p className="truncate font-medium text-foreground">{tx.category || '—'}</p>
+                                        <p className="text-sm text-muted-foreground">{formatDisplayDate(tx.date)}</p>
+                                    </div>
+                                    <Money
+                                        agorot={getAgorot(tx)}
+                                        prefix={tx.type === TYPE.INCOME ? '+' : '-'}
+                                        className={`shrink-0 font-semibold ${tx.type === TYPE.INCOME ? 'text-income' : 'text-expense'}`}
+                                    />
+                                </li>
+                            ))}
                         </ul>
                     </CardContent>
                 </Card>
-
-                {/* Income vs Expense Chart */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>📊 הכנסות מול הוצאות (6 חודשים אחרונים)</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <ResponsiveContainer width="100%" height={250}>
-                            <BarChart data={chartData}>
-                                <XAxis dataKey="month" />
-                                <YAxis domain={[0, 'dataMax + 2000']} tick={{ textAnchor: 'start', dx: -10 }} />
-                                <Tooltip />
-                                <Bar dataKey="income" fill={CHART_COLORS.income} name="הכנסה" />
-                                <Bar dataKey="expense" fill={CHART_COLORS.expense} name="הוצאה" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
             </div>
 
+            {/* Expense breakdown */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <PieChartIcon size={20} className="text-muted-foreground" aria-hidden="true" />
+                        פילוח הוצאות לפי קטגוריה
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    {pieData.length > 0 ? (
+                        <ExpenseBreakdown data={pieData} total={totalExpense} />
+                    ) : (
+                        <p className="text-center text-muted-foreground">אין עדיין הוצאות להצגה</p>
+                    )}
+                </CardContent>
+            </Card>
 
-
-            {/* Pie + list */}
-            <div className="grid grid-cols-1">
-                <Card className="p-4">
-                    <CardHeader>
-                        <CardTitle>🧾 פילוח הוצאות לפי קטגוריה</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {pieData.length > 0 ? (
-                            <div className="flex flex-col md:flex-row items-start justify-center gap-8">
-                                <ResponsiveContainer width={300} height={300}>
-                                    <PieChart>
-                                        <Pie
-                                            data={pieData}
-                                            cx="50%"
-                                            cy="50%"
-                                            outerRadius={100}
-                                            fill="#8884d8"
-                                            dataKey="value"
-                                        >
-                                            {pieData.map((_, index) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                            ))}
-                                        </Pie>
-                                        <Tooltip formatter={(value, name, props) => [formatMoney(value), props.payload.name]} />
-                                    </PieChart>
-                                </ResponsiveContainer>
-
-                                <ul className="text-sm text-right max-h-[300px] overflow-y-auto pr-4">
-                                    {pieData.map((entry, index) => (
-                                        <li key={index} className="mb-1">
-                                            <span
-                                                className="inline-block w-3 h-3 rounded-full ml-2 align-middle"
-                                                style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                                            ></span>
-                                            <strong>{entry.name}</strong>: {((entry.value / (totalExpenses || 1)) * 100).toFixed(1)}%
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        ) : (
-                            <p className="text-center text-gray-500">אין עדיין הוצאות להצגה</p>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* ✅ הצעות לחיסכון – לוקאלי */}
-            <div className="mb-6">
-                <Suggestions transactions={transactions} />
-            </div>
+            {/* Saving suggestions, computed locally */}
+            <Suggestions transactions={transactions} />
             </PageState>
         </div>
     );
