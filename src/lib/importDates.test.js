@@ -1,4 +1,9 @@
-import { getLastDayOfPreviousMonth, computeIsracardChargeDate } from './importDates';
+import {
+  getLastDayOfPreviousMonth,
+  computeIsracardChargeDate,
+  parseExcelDate,
+  parseIsracardDate,
+} from './importDates';
 
 // Tests run with TZ=Asia/Jerusalem (see src/jestGlobalSetup.js), where local midnight
 // is 2-3 hours before UTC midnight, so toISOString() shifts dates back by one day.
@@ -52,5 +57,72 @@ describe('computeIsracardChargeDate', () => {
   test('posting date for a charge on the 1st lands in the previous month', () => {
     const charge = computeIsracardChargeDate({ headerYear: 2025, headerMonth: 3, billingStr: '01.03' });
     expect(getLastDayOfPreviousMonth(charge)).toBe('2025-02-28');
+  });
+});
+
+describe('parseExcelDate', () => {
+  test('falsy values return null', () => {
+    expect(parseExcelDate(null)).toBeNull();
+    expect(parseExcelDate(0)).toBeNull();
+    expect(parseExcelDate('')).toBeNull();
+  });
+
+  test('Excel serial numbers (whole and fractional) map to the calendar date', () => {
+    expect(parseExcelDate(45658)).toBe('2025-01-01');
+    expect(parseExcelDate(45658.75)).toBe('2025-01-01');
+    expect(parseExcelDate(45747)).toBe('2025-03-31');
+  });
+
+  test('DD/MM/YYYY with any of / - . as separator', () => {
+    expect(parseExcelDate('05/03/2025')).toBe('2025-03-05');
+    expect(parseExcelDate('05-03-2025')).toBe('2025-03-05');
+    expect(parseExcelDate('05.03.2025')).toBe('2025-03-05');
+  });
+
+  test('YYYY-MM-DD is kept as is', () => {
+    expect(parseExcelDate('2025-03-05')).toBe('2025-03-05');
+  });
+
+  test('two-digit years: 70-99 are 19xx, 00-69 are 20xx', () => {
+    expect(parseExcelDate('05/03/25')).toBe('2025-03-05');
+    expect(parseExcelDate('05/03/70')).toBe('1970-03-05');
+    expect(parseExcelDate('05/03/69')).toBe('2069-03-05');
+  });
+
+  test('surrounding spaces are ignored', () => {
+    expect(parseExcelDate(' 05/03/2025 ')).toBe('2025-03-05');
+  });
+
+  test('unrecognised input returns null', () => {
+    expect(parseExcelDate('garbage')).toBeNull();
+    expect(parseExcelDate({})).toBeNull();
+  });
+});
+
+describe('parseIsracardDate', () => {
+  test('falsy values return null', () => {
+    expect(parseIsracardDate(null)).toBeNull();
+    expect(parseIsracardDate('')).toBeNull();
+  });
+
+  test('two-digit year with dots', () => {
+    expect(parseIsracardDate('05.03.25')).toBe('2025-03-05');
+  });
+
+  test('four-digit year with slashes or dashes', () => {
+    expect(parseIsracardDate('05/03/2025')).toBe('2025-03-05');
+    expect(parseIsracardDate('05-03-2025')).toBe('2025-03-05');
+  });
+
+  test('Excel serial numbers are delegated to parseExcelDate', () => {
+    expect(parseIsracardDate(45658)).toBe('2025-01-01');
+  });
+
+  test('ISO strings fall through to parseExcelDate', () => {
+    expect(parseIsracardDate('2025-03-05')).toBe('2025-03-05');
+  });
+
+  test('unrecognised input returns null', () => {
+    expect(parseIsracardDate('garbage')).toBeNull();
   });
 });

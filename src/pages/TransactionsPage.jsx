@@ -25,7 +25,8 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import * as XLSX from 'xlsx';
 import dayjs from 'dayjs';
 import 'dayjs/locale/he';
-import { getLastDayOfPreviousMonth, computeIsracardChargeDate } from '../lib/importDates';
+import { getLastDayOfPreviousMonth, computeIsracardChargeDate, parseExcelDate, parseIsracardDate } from '../lib/importDates';
+import { cleanAmount } from '../lib/amounts';
 import { categorizeMerchant, normalizeMerchantName } from '../lib/categorize';
 import { buildTransactionId, chunk, MAX_BATCH_SIZE } from '../lib/transactionId';
 
@@ -61,84 +62,6 @@ export default function TransactionsPage() {
       }
     }
     return null;
-  };
-
-  const cleanAmount = (value) => {
-    if (value === null || value === undefined || value === '') return null;
-    if (typeof value === 'number') return value;
-
-    const cleaned = String(value)
-      .replace(/₪/g, '')
-      .replace(/,/g, '')
-      .replace(/\s/g, '')
-      .replace(/[^\d().-]/g, '');
-
-    if (!cleaned) return null;
-
-    if (cleaned.startsWith('(') && cleaned.endsWith(')')) {
-      const num = parseFloat(cleaned.slice(1, -1));
-      return Number.isNaN(num) ? null : -num;
-    }
-
-    const num = parseFloat(cleaned);
-    return Number.isNaN(num) ? null : num;
-  };
-
-  function parseExcelDate(value) {
-    if (!value) return null;
-
-    if (typeof value === 'number') {
-      const utc_days = Math.floor(value - 25569);
-      const date = new Date(utc_days * 86400 * 1000);
-      return date.toISOString().split('T')[0];
-    }
-
-    if (typeof value === 'string') {
-      const str = value.trim();
-
-      let m = str.match(/^(\d{2})[\/\-.](\d{2})[\/\-.](\d{4})$/);
-      if (m) {
-        const [, day, month, year] = m;
-        return `${year}-${month}-${day}`;
-      }
-
-      m = str.match(/^(\d{4})[\/\-.](\d{2})[\/\-.](\d{2})$/);
-      if (m) {
-        const [, year, month, day] = m;
-        return `${year}-${month}-${day}`;
-      }
-
-      m = str.match(/^(\d{2})[\/\-.](\d{2})[\/\-.](\d{2})$/);
-      if (m) {
-        const [, day, month, year] = m;
-        const fullYear = Number(year) >= 70 ? `19${year}` : `20${year}`;
-        return `${fullYear}-${month}-${day}`;
-      }
-    }
-
-    return null;
-  }
-
-  const parseIsracardDate = (value) => {
-    if (!value) return null;
-    if (typeof value === 'number') return parseExcelDate(value);
-
-    const str = String(value).trim();
-
-    let m = str.match(/^(\d{2})[./-](\d{2})[./-](\d{2})$/);
-    if (m) {
-      const [, day, month, year] = m;
-      const fullYear = Number(year) >= 70 ? `19${year}` : `20${year}`;
-      return `${fullYear}-${month}-${day}`;
-    }
-
-    m = str.match(/^(\d{2})[./-](\d{2})[./-](\d{4})$/);
-    if (m) {
-      const [, day, month, year] = m;
-      return `${year}-${month}-${day}`;
-    }
-
-    return parseExcelDate(str);
   };
 
   const loadMerchantCategoryMap = async (uid) => {
