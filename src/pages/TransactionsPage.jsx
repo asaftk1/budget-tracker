@@ -1,21 +1,7 @@
 
-import { useEffect, useState } from 'react';
-import { db } from '../firebase';
-import {
-  collection,
-  onSnapshot,
-  addDoc,
-  deleteDoc,
-  doc,
-  updateDoc,
-  setDoc,
-  writeBatch,
-  getDocs,
-  query,
-  where
-} from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { useState } from 'react';
 import { getAuth } from 'firebase/auth';
+import useTransactions, { loadMerchantCategoryMap, commitTransactions } from '../hooks/useTransactions';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
@@ -25,14 +11,19 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import * as XLSX from 'xlsx';
 import dayjs from 'dayjs';
 import 'dayjs/locale/he';
-import { normalizeMerchantName } from '../lib/categorize';
 import { parseIsracardSheet, parseMaxSheet } from '../lib/statementParsers';
-import { buildTransactionId, chunk, MAX_BATCH_SIZE } from '../lib/transactionId';
+import { buildTransactionId } from '../lib/transactionId';
 
 dayjs.locale('he');
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState([]);
+  const {
+    transactions,
+    categories,
+    saveTransaction,
+    deleteTransaction,
+    updateTransactionCategory,
+  } = useTransactions();
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [type, setType] = useState('');
@@ -44,96 +35,10 @@ export default function TransactionsPage() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [editTransaction, setEditTransaction] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(dayjs().format('YYYY-MM'));
-  const [categories, setCategories] = useState([]);
   const [missingCatOpen, setMissingCatOpen] = useState(false);
   const [missingCatTx, setMissingCatTx] = useState(null);
   const [missingCatValue, setMissingCatValue] = useState('');
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
-
-  const normalizeCategory = (cat) => (cat || '').trim().toLowerCase();
-
-  const loadMerchantCategoryMap = async (uid) => {
-    const map = new Map();
-    try {
-      const snap = await getDocs(query(collection(db, 'merchantCategories'), where('uid', '==', uid)));
-      snap.forEach((d) => {
-        const data = d.data();
-        if (data?.merchantNormalized && data?.category) {
-          map.set(data.merchantNormalized, data.category);
-        }
-      });
-    } catch (e) {
-      console.warn('Failed to load merchant-category map', e);
-    }
-    return map;
-  };
-
-  const saveMerchantCategory = async (uid, merchant, category, mapRef) => {
-    const merchantNormalized = normalizeMerchantName(merchant);
-    if (!uid || !merchantNormalized || !category) return;
-
-    const finalCategory = (category || '').trim();
-    if (!finalCategory) return;
-
-    const safeDocId = `${uid}_${encodeURIComponent(merchantNormalized)}`;
-
-    try {
-      await setDoc(
-        doc(db, 'merchantCategories', safeDocId),
-        {
-          uid,
-          merchantNormalized,
-          merchant: merchant?.trim() || merchantNormalized,
-          category: finalCategory,
-        },
-        { merge: true }
-      );
-
-      if (mapRef) mapRef.set(merchantNormalized, finalCategory);
-    } catch (e) {
-      console.warn('Failed to save merchant-category map', e);
-    }
-  };
-
-  useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        setCategories([]);
-        return;
-      }
-
-      const q = query(collection(db, 'categories'), where('uid', '==', user.uid));
-      const unsubscribeSnapshot = onSnapshot(q, (snap) => {
-        const data = snap.docs.map(doc => doc.data().name);
-        setCategories(data);
-      });
-
-      return unsubscribeSnapshot;
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        setTransactions([]);
-        return;
-      }
-
-      const q = query(collection(db, 'transactions'), where('uid', '==', user.uid));
-      const unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setTransactions(data);
-      });
-
-      return unsubscribeSnapshot;
-    });
-
-    return () => unsubscribe();
-  }, []);
 
   const groupedByDate = transactions.reduce((acc, tx) => {
     const baseDate = tx.date;
@@ -242,16 +147,7 @@ export default function TransactionsPage() {
 
       // Deterministic ids: re-importing the same file overwrites the same documents.
       // Every document carries uid === the signed-in user, as firestore.rules requires.
-      for (const group of chunk(pending, MAX_BATCH_SIZE)) {
-        const batch = writeBatch(db);
-        group.forEach(({ id, data }) => batch.set(doc(db, 'transactions', id), data));
-        try {
-          await batch.commit();
-          total += group.length;
-        } catch (error) {
-          console.error('Firestore batch write failed:', error);
-        }
-      }
+      total = await commitTransactions(pending);
 
       console.log(`✔️ הסתיים ייבוא: נוספו ${total} פעולות`);
       setSelectedFile(null);
@@ -269,36 +165,8 @@ export default function TransactionsPage() {
   const handleSave = async () => {
     if (!formData.date || !formData.category || !formData.amount || !type) return;
 
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const transactionData = {
-      ...formData,
-      amount: parseFloat(formData.amount),
-      type,
-      uid: user.uid
-    };
-
-    const normalizedCategories = categories.map(normalizeCategory);
-    const currentCat = normalizeCategory(formData.category);
-
-    if (!normalizedCategories.includes(currentCat)) {
-      await addDoc(collection(db, 'categories'), {
-        name: formData.category.trim(),
-        uid: user.uid
-      });
-    }
-
-    if (editTransaction) {
-      const docRef = doc(db, 'transactions', editTransaction.id);
-      await updateDoc(docRef, transactionData);
-      if (editTransaction.merchant && transactionData.category) {
-        await saveMerchantCategory(user.uid, editTransaction.merchant, transactionData.category, null);
-      }
-    } else {
-      await addDoc(collection(db, 'transactions'), transactionData);
-    }
+    const saved = await saveTransaction({ formData, type, editTransaction });
+    if (!saved) return;
 
     setFormData({ date: '', category: '', amount: '' });
     setType('');
@@ -312,7 +180,7 @@ export default function TransactionsPage() {
     setPendingDeleteId(null);
     if (!id) return;
     try {
-      await deleteDoc(doc(db, 'transactions', id));
+      await deleteTransaction(id);
     } catch (e) {
       console.error('Failed to delete transaction', e);
       alert('מחיקת הפעולה נכשלה');
@@ -340,18 +208,16 @@ export default function TransactionsPage() {
   const handleSaveMissingCat = async () => {
     if (!missingCatTx || !missingCatValue.trim()) return;
 
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (!user) return;
-
     const category = missingCatValue.trim();
 
+    // proceed is false only when nobody is signed in; errors are logged and the dialog still closes.
+    let proceed = true;
     try {
-      await updateDoc(doc(db, 'transactions', missingCatTx.id), { category });
-      await saveMerchantCategory(user.uid, missingCatTx.merchant, category, null);
+      proceed = await updateTransactionCategory(missingCatTx, category);
     } catch (e) {
       console.error('Failed to update missing category', e);
     }
+    if (!proceed) return;
 
     setMissingCatOpen(false);
     setMissingCatTx(null);
