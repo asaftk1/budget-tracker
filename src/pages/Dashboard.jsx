@@ -1,19 +1,13 @@
 import { useEffect, useState } from 'react';
 import { db } from '../firebase';
-import { collection, addDoc, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
 import { getAuth } from 'firebase/auth';
-import { query, where } from 'firebase/firestore';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
-import { PieChart, Pie, Cell } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
 import Suggestions from '../components/Suggestions';
 
 export default function Dashboard() {
     const [transactions, setTransactions] = useState([]);
-    const [isOpen, setIsOpen] = useState(false);
-    const [step, setStep] = useState(0);
-    const [type, setType] = useState('');
-    const [formData, setFormData] = useState({ date: '', category: '', amount: '' });
 
     useEffect(() => {
         const auth = getAuth();
@@ -28,30 +22,6 @@ export default function Dashboard() {
 
         return () => unsub();
     }, []);
-
-    const handleChange = (e) => {
-        setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-    };
-
-    // ✅ "הקשחה": אם תשתמש בזה בעתיד – הפעולה תופיע בשאילתה כי נשמר uid
-    const handleSave = async () => {
-        if (!formData.date || !formData.category || !formData.amount || !type) return;
-
-        const user = getAuth().currentUser;
-        if (!user) return;
-
-        await addDoc(collection(db, 'transactions'), {
-            ...formData,
-            amount: parseFloat(formData.amount),
-            type,
-            uid: user.uid, // ✅ חשוב לשאילתת where('uid'...
-        });
-
-        setFormData({ date: '', category: '', amount: '' });
-        setType('');
-        setStep(0);
-        setIsOpen(false);
-    };
 
     const totalIncome = transactions
         .filter(tx => tx.type === 'הכנסה')
