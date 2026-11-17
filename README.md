@@ -70,3 +70,17 @@ Re-importing the same file overwrites the same documents (deterministic IDs). Ro
 ## 🧠 Optional ML service
 
 `src/category_api.py` (Flask) and `src/smart_reclassify.py` are standalone helper scripts, not part of the web app.
+
+## 🧮 Migration: amountAgorot (one-off, optional)
+
+Older `transactions` documents only have `amount` (ILS). `scripts/migrate-amount-agorot.mjs` adds the integer
+`amountAgorot` to them. It only writes that one field, skips and lists documents with a zero, negative, missing,
+NaN or out-of-range amount, and is safe to run twice. Default is a dry run; writing needs `--apply --project <id>`.
+
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+npm run migrate:amount-agorot -- --project <project-id>            # dry run
+npm run migrate:amount-agorot -- --project <project-id> --apply    # write
+```
+
+Requires Node 22+. See the header of the script for all options.
