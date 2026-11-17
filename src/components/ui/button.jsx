@@ -11,12 +11,14 @@ const hasBackgroundClass = (className = "") => /(^|\s)bg-/.test(className);
 //   outline      white with a border
 //   ghost        no background until hovered
 //   destructive  solid danger red, white text
+//   outlineDanger  outline in the danger colour (log out, quiet destructive actions)
 const VARIANTS = {
   default: { base: "text-white", bg: "bg-primary hover:bg-primary-hover", ownBgHover: "hover:opacity-90" },
   secondary: { base: "text-primary", bg: "bg-primary-soft hover:bg-muted", ownBgHover: "hover:opacity-90" },
   outline: { base: "border border-input text-foreground", bg: "bg-background hover:bg-muted", ownBgHover: "hover:opacity-90" },
   ghost: { base: "text-foreground", bg: "hover:bg-muted", ownBgHover: "hover:opacity-90" },
   destructive: { base: "text-white", bg: "bg-danger hover:opacity-90", ownBgHover: "hover:opacity-90" },
+  outlineDanger: { base: "border border-danger/40 text-danger", bg: "bg-background hover:bg-danger/5", ownBgHover: "hover:opacity-90" },
 };
 
 const SIZES = {

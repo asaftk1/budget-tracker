@@ -72,4 +72,11 @@ describe('Button', () => {
     expect(s.className).toContain('bg-primary-soft');
     expect(s.className).not.toContain('text-white');
   });
+
+  test('the outlineDanger variant has a danger border and text on a light background', async () => {
+    const b = await render(<Button variant="outlineDanger">out</Button>);
+    expect(b.className).toContain('text-danger');
+    expect(b.className).toContain('bg-background');
+    expect(b.className).not.toContain('text-white');
+  });
 });
