@@ -1,6 +1,6 @@
 // src/layouts/MainLayout.jsx
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, LayoutDashboard, Table, Folder, Menu } from 'lucide-react';
+import { LogOut, LayoutDashboard, Table, Folder, Menu, BarChart3 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useNavigate, NavLink } from 'react-router-dom';
 import { useState } from 'react';
@@ -33,7 +33,8 @@ export default function MainLayout({ children }) {
           <h2 className="text-2xl font-bold text-green-600 mb-6 hidden md:block">Balance</h2>
           <nav className="space-y-4">
             <NavLink
-              to="/"
+              onClick={() => setSidebarOpen(false)}
+              to="/dashboard"
               className={({ isActive }) =>
                 isActive
                   ? 'font-bold text-green-600 flex items-center gap-2'
@@ -44,6 +45,7 @@ export default function MainLayout({ children }) {
               מסך בית
             </NavLink>
             <NavLink
+              onClick={() => setSidebarOpen(false)}
               to="/transactions"
               className={({ isActive }) =>
                 isActive
@@ -55,6 +57,7 @@ export default function MainLayout({ children }) {
               פעולות
             </NavLink>
             <NavLink
+              onClick={() => setSidebarOpen(false)}
               to="/categories"
               className={({ isActive }) =>
                 isActive
@@ -67,6 +70,7 @@ export default function MainLayout({ children }) {
             </NavLink>
 
             <NavLink
+              onClick={() => setSidebarOpen(false)}
               to="/analytics"
               className={({ isActive }) =>
                 isActive
@@ -74,7 +78,7 @@ export default function MainLayout({ children }) {
                   : 'text-gray-700 flex items-center gap-2'
               }
             >
-              <Folder />
+              <BarChart3 />
               ניתוח נתונים
             </NavLink>
 
