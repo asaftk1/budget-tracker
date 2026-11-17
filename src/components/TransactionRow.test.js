@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import TransactionRow from './TransactionRow';
 import { TX_TYPE } from '../lib/statementParsers';
 
+const plain = (s) => s.replace(/[\u200e\u200f]/g, '').replace(/\u00a0/g, ' ');
+
 beforeEach(() => {
   global.IS_REACT_ACT_ENVIRONMENT = true;
 });
@@ -31,8 +33,16 @@ describe('TransactionRow card variant', () => {
     const c = await render(<TransactionRow tx={expense} variant="card" {...handlers()} />);
     expect(c.textContent).toContain('Shop A');
     expect(c.textContent).toContain('food');
-    expect(c.textContent).toContain('₪12.5');
+    expect(plain(c.textContent)).toContain('12.50 ₪');
     expect(c.querySelector('.text-red-500').textContent).toBe(TX_TYPE.EXPENSE);
+  });
+
+  test('amounts come from amountAgorot when present and from legacy amount otherwise', async () => {
+    const modern = await render(<TransactionRow tx={{ ...expense, amount: 1, amountAgorot: 1999 }} variant="card" {...handlers()} />);
+    expect(plain(modern.textContent)).toContain('19.99 ₪');
+    const noisy = await render(<TransactionRow tx={{ ...expense, amount: 12.299999999999999 }} variant="card" {...handlers()} />);
+    expect(plain(noisy.textContent)).toContain('12.30 ₪');
+    expect(noisy.textContent).not.toContain('12.2999');
   });
 
   test('income is green', async () => {
@@ -76,7 +86,7 @@ describe('TransactionRow table variant', () => {
     const c = await render(<TransactionRow tx={expense} variant="table" {...handlers()} />, asTable);
     const cells = [...c.querySelectorAll('td')];
     expect(cells).toHaveLength(5);
-    expect(cells.slice(0, 4).map((td) => td.textContent)).toEqual(['Shop A', 'food', '₪12.5', TX_TYPE.EXPENSE]);
+    expect(cells.slice(0, 4).map((td) => plain(td.textContent))).toEqual(['Shop A', 'food', '12.50 ₪', TX_TYPE.EXPENSE]);
   });
 
   test('zebra striping follows the index', async () => {

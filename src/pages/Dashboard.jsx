@@ -6,6 +6,7 @@ import { getAuth } from 'firebase/auth';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
 import Suggestions from '../components/Suggestions';
 import dayjs from 'dayjs';
+import { getAgorot, fromAgorot, formatMoney, sumAgorot, sumAgorotBy } from '../lib/money';
 
 export default function Dashboard() {
     const [transactions, setTransactions] = useState([]);
@@ -24,23 +25,17 @@ export default function Dashboard() {
         return () => unsub();
     }, []);
 
-    const totalIncome = transactions
-        .filter(tx => tx.type === 'הכנסה')
-        .reduce((acc, tx) => acc + Number(tx.amount || 0), 0);
+    // All money below is integer agorot until it is displayed or handed to a chart.
+    const totalIncome = sumAgorot(transactions.filter(tx => tx.type === 'הכנסה'));
 
-    const totalExpense = transactions
-        .filter(tx => tx.type === 'הוצאה')
-        .reduce((acc, tx) => acc + Number(tx.amount || 0), 0);
+    const totalExpense = sumAgorot(transactions.filter(tx => tx.type === 'הוצאה'));
 
     const balance = totalIncome - totalExpense;
 
-    const expensesByCategory = transactions
-        .filter(tx => tx.type === 'הוצאה')
-        .reduce((acc, tx) => {
-            const cat = tx.category || 'לא מסווג';
-            acc[cat] = (acc[cat] || 0) + Number(tx.amount || 0);
-            return acc;
-        }, {});
+    const expensesByCategory = sumAgorotBy(
+        transactions.filter(tx => tx.type === 'הוצאה'),
+        tx => tx.category || 'לא מסווג'
+    );
 
     const COLORS = ['#FF6384', '#36A2EB', '#FFCE56', '#4CAF50', '#FF9800', '#9C27B0', '#03A9F4'];
     const pieData = Object.entries(expensesByCategory).map(([category, value]) => ({
@@ -53,13 +48,12 @@ export default function Dashboard() {
         const date = dayjs().startOf('month').subtract(i, 'month').toDate();
         const month = date.toLocaleString('default', { month: 'short' });
 
-        const income = transactions
-            .filter(tx => tx.type === 'הכנסה' && new Date(tx.date).getMonth() === date.getMonth() && new Date(tx.date).getFullYear() === date.getFullYear())
-            .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+        // Charts take shekels; the sums themselves are exact agorot.
+        const income = fromAgorot(sumAgorot(transactions
+            .filter(tx => tx.type === 'הכנסה' && new Date(tx.date).getMonth() === date.getMonth() && new Date(tx.date).getFullYear() === date.getFullYear())));
 
-        const expense = transactions
-            .filter(tx => tx.type === 'הוצאה' && new Date(tx.date).getMonth() === date.getMonth() && new Date(tx.date).getFullYear() === date.getFullYear())
-            .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+        const expense = fromAgorot(sumAgorot(transactions
+            .filter(tx => tx.type === 'הוצאה' && new Date(tx.date).getMonth() === date.getMonth() && new Date(tx.date).getFullYear() === date.getFullYear())));
 
         return { month, income, expense };
     }).reverse();
@@ -76,7 +70,7 @@ export default function Dashboard() {
                     </CardHeader>
                     <CardContent>
                         <p className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            ₪{balance.toFixed(2)}
+                            {formatMoney(balance)}
                         </p>
                     </CardContent>
                 </Card>
@@ -85,7 +79,7 @@ export default function Dashboard() {
                         <CardTitle>סה״כ הכנסות</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-2xl font-bold text-green-500">₪{totalIncome.toFixed(2)}</p>
+                        <p className="text-2xl font-bold text-green-500">{formatMoney(totalIncome)}</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -93,7 +87,7 @@ export default function Dashboard() {
                         <CardTitle>סה״כ הוצאות</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-2xl font-bold text-red-500">₪{totalExpense.toFixed(2)}</p>
+                        <p className="text-2xl font-bold text-red-500">{formatMoney(totalExpense)}</p>
                     </CardContent>
                 </Card>
             </div>
@@ -117,7 +111,7 @@ export default function Dashboard() {
                                             <p className="text-sm text-gray-500">{tx.date}</p>
                                         </div>
                                         <span className={`font-bold ${tx.type === 'הכנסה' ? 'text-green-600' : 'text-red-500'}`}>
-                                            {tx.type === 'הכנסה' ? '+' : '-'}₪{Number(tx.amount || 0).toFixed(2)}
+                                            {tx.type === 'הכנסה' ? '+' : '-'}{formatMoney(getAgorot(tx))}
                                         </span>
                                     </li>
                                 ))}
@@ -169,7 +163,7 @@ export default function Dashboard() {
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
-                                        <Tooltip formatter={(value, name, props) => [`₪${Number(value).toFixed(2)}`, props.payload.name]} />
+                                        <Tooltip formatter={(value, name, props) => [formatMoney(value), props.payload.name]} />
                                     </PieChart>
                                 </ResponsiveContainer>
 

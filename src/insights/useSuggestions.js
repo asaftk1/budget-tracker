@@ -1,6 +1,13 @@
 // src/insights/useSuggestions.js
 import { useMemo } from "react";
 import dayjs from "dayjs";
+import { getAgorot, fromAgorot, formatMoney } from "../lib/money";
+
+// Thresholds in agorot (amounts below are integer agorot until displayed or scored).
+const SPIKE_MIN_AGOROT = 200 * 100;
+const BIG_ONE_MIN_AGOROT = 500 * 100;
+
+const wholeShekels = (agorot) => formatMoney(agorot, { fractionDigits: 0 });
 
 // עזר: קיבוץ לפי חודש YYYY-MM
 function byMonth(dateStr) {
@@ -12,8 +19,8 @@ function normalize(str = "") {
   return String(str).trim().toLowerCase();
 }
 
-export default function useSuggestions(transactions = []) {
-  return useMemo(() => {
+// Pure computation behind the hook, exported for tests.
+export function buildSuggestions(transactions = []) {
     if (!transactions.length) return [];
 
     // רק הוצאות
@@ -36,14 +43,15 @@ export default function useSuggestions(transactions = []) {
         const perMonth = {};
         for (const a of arr) {
           const m = byMonth(a.date);
-          perMonth[m] = (perMonth[m] || 0) + Number(a.amount || 0);
+          perMonth[m] = (perMonth[m] || 0) + getAgorot(a);
         }
-        const avg = Object.values(perMonth).reduce((s, v) => s + v, 0) / Object.keys(perMonth).length;
+        const avgAgorot = Object.values(perMonth).reduce((s, v) => s + v, 0) / Object.keys(perMonth).length;
+        const avg = fromAgorot(avgAgorot);
         return {
           kind: "subscription",
           score: Math.min(100, Math.round(avg)), // דירוג גס לפי גודל חודשי
           title: `נראה שיש חיוב קבוע ב"${merchant}"`,
-          detail: `ממוצע חודשי ~ ₪${avg.toFixed(0)}. שווה לבדוק אם אפשר לבטל/להוזיל.`,
+          detail: `ממוצע חודשי ~ ${wholeShekels(avgAgorot)}. שווה לבדוק אם אפשר לבטל/להוזיל.`,
           meta: { merchant, avgMonthly: avg }
         };
       });
@@ -54,7 +62,7 @@ export default function useSuggestions(transactions = []) {
       const cat = normalize(t.category);
       const m = byMonth(t.date);
       const key = `${cat}__${m}`;
-      byCatMonth[key] = (byCatMonth[key] || 0) + Number(t.amount || 0);
+      byCatMonth[key] = (byCatMonth[key] || 0) + getAgorot(t);
     }
     // בונים סכומים פר חודש לכל קטגוריה
     const catMonths = {};
@@ -74,13 +82,13 @@ export default function useSuggestions(transactions = []) {
         if (prevVal > 0) {
           const delta = currVal - prevVal;
           const pct = (delta / prevVal) * 100;
-          if (pct >= 40 && currVal >= 200) { // טריגר: עלייה >=40% וסכום משמעותי
+          if (pct >= 40 && currVal >= SPIKE_MIN_AGOROT) { // טריגר: עלייה >=40% וסכום משמעותי
             mom.push({
               kind: "mom_spike",
-              score: Math.min(100, Math.round(currVal / 10)),
+              score: Math.min(100, Math.round(fromAgorot(currVal) / 10)),
               title: `עלייה חדה ב"${cat}"`,
-              detail: `חודש ${curr} עלה ב־${pct.toFixed(0)}% (₪${currVal.toFixed(0)} לעומת ₪${prevVal.toFixed(0)}).`,
-              meta: { cat, curr, currVal, prevVal, pct }
+              detail: `חודש ${curr} עלה ב־${pct.toFixed(0)}% (${wholeShekels(currVal)} לעומת ${wholeShekels(prevVal)}).`,
+              meta: { cat, curr, currVal: fromAgorot(currVal), prevVal: fromAgorot(prevVal), pct }
             });
           }
         }
@@ -88,17 +96,17 @@ export default function useSuggestions(transactions = []) {
     });
 
     // 3) הוצאות חד־פעמיות גדולות (Outliers)
-    const amounts = expenses.map(e => Number(e.amount || 0)).sort((a,b)=>a-b);
+    const amounts = expenses.map(getAgorot).sort((a,b)=>a-b);
     const p90 = amounts[Math.floor(0.9 * amounts.length)] || 0;
     const bigOnes = expenses
-      .filter(e => Number(e.amount) >= p90 && Number(e.amount) >= 500)
-      .sort((a, b) => Number(b.amount) - Number(a.amount))
+      .filter(e => getAgorot(e) >= p90 && getAgorot(e) >= BIG_ONE_MIN_AGOROT)
+      .sort((a, b) => getAgorot(b) - getAgorot(a))
       .map(e => ({
         kind: "big_one",
-        score: Math.min(100, Math.round(Number(e.amount) / 20)),
+        score: Math.min(100, Math.round(fromAgorot(getAgorot(e)) / 20)),
         title: `עסקה גדולה: ${e.category}`,
-        detail: `₪${Number(e.amount).toFixed(0)} ב־${dayjs(e.date).format("DD/MM/YYYY")}. אפשר לפרוס/להוזיל/להשוות מחירים.`,
-        meta: { category: e.category, amount: Number(e.amount), date: e.date }
+        detail: `${wholeShekels(getAgorot(e))} ב־${dayjs(e.date).format("DD/MM/YYYY")}. אפשר לפרוס/להוזיל/להשוות מחירים.`,
+        meta: { category: e.category, amount: fromAgorot(getAgorot(e)), date: e.date }
       }))
       .slice(0, 3);
 
@@ -109,8 +117,8 @@ export default function useSuggestions(transactions = []) {
         kind: "fees",
         score: 60,
         title: `תשלום מסווג כעמלה/ריבית: ${e.category}`,
-        detail: `₪${Number(e.amount).toFixed(0)} – בדוק אפשרויות לביטול עמלות/החלפת מסלול.`,
-        meta: { category: e.category, amount: Number(e.amount), date: e.date }
+        detail: `${wholeShekels(getAgorot(e))} – בדוק אפשרויות לביטול עמלות/החלפת מסלול.`,
+        meta: { category: e.category, amount: fromAgorot(getAgorot(e)), date: e.date }
       }));
 
     // מאחדים ומדרגים
@@ -119,5 +127,8 @@ export default function useSuggestions(transactions = []) {
       .slice(0, 10);
 
     return suggestions;
-  }, [transactions]);
+}
+
+export default function useSuggestions(transactions = []) {
+  return useMemo(() => buildSuggestions(transactions), [transactions]);
 }

@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
 import { Input } from '../components/ui/input';
 import dayjs from 'dayjs';
+import { fromAgorot, formatMoney, sumAgorot, sumAgorotBy } from '../lib/money';
 
 export default function AnalyticsPage() {
   const [transactions, setTransactions] = useState([]);
@@ -31,14 +32,12 @@ export default function AnalyticsPage() {
     });
   }, [transactions, fromDate, toDate]);
 
+  // Per-category totals in integer agorot.
   const expensesByCategory = useMemo(() => {
-    return filtered
-      .filter(tx => tx.type === 'הוצאה')
-      .reduce((acc, tx) => {
-        const cat = tx.category || 'לא מסווג';
-        acc[cat] = (acc[cat] || 0) + Number(tx.amount || 0);
-        return acc;
-      }, {});
+    return sumAgorotBy(
+      filtered.filter(tx => tx.type === 'הוצאה'),
+      tx => tx.category || 'לא מסווג'
+    );
   }, [filtered]);
 
   const totalExpenses = useMemo(
@@ -55,12 +54,13 @@ export default function AnalyticsPage() {
 
   const chartData = useMemo(() => [{
     name: 'סיכום',
-    הכנסות: filtered.filter(tx => tx.type === 'הכנסה').reduce((sum, tx) => sum + Number(tx.amount || 0), 0),
-    הוצאות: filtered.filter(tx => tx.type === 'הוצאה').reduce((sum, tx) => sum + Number(tx.amount || 0), 0)
+    // The bar chart takes shekels; the sums themselves are exact agorot.
+    הכנסות: fromAgorot(sumAgorot(filtered.filter(tx => tx.type === 'הכנסה'))),
+    הוצאות: fromAgorot(sumAgorot(filtered.filter(tx => tx.type === 'הוצאה')))
   }], [filtered]);
 
-  const formatCurrency = (n) =>
-    new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }).format(n || 0);
+  // Pie values and totals are agorot; bar chart values are shekels.
+  const formatBarValue = (shekels) => formatMoney(Math.round(shekels * 100));
 
   return (
     <div dir="rtl" className="p-6 bg-gray-50 min-h-screen">
@@ -94,7 +94,7 @@ export default function AnalyticsPage() {
                           <Cell key={index} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value, name) => [formatCurrency(value), name]} />
+                      <Tooltip formatter={(value, name) => [formatMoney(value), name]} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -103,7 +103,7 @@ export default function AnalyticsPage() {
                 <div className="md:w-1/2">
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-semibold">סה״כ הוצאות</span>
-                    <span className="font-bold">{formatCurrency(totalExpenses)}</span>
+                    <span className="font-bold">{formatMoney(totalExpenses)}</span>
                   </div>
                   <ul className="divide-y border rounded-lg bg-white">
                     {pieData.map((item, idx) => {
@@ -118,7 +118,7 @@ export default function AnalyticsPage() {
                           <div className="flex-1">
                             <div className="font-medium">{item.name}</div>
                             <div className="text-xs text-gray-500">
-                              {percent.toFixed(1)}% • {formatCurrency(item.value)}
+                              {percent.toFixed(1)}% • {formatMoney(item.value)}
                             </div>
                           </div>
                         </li>
@@ -143,7 +143,7 @@ export default function AnalyticsPage() {
               <BarChart data={chartData}>
                 <XAxis dataKey="name" />
                 <YAxis tick={{ textAnchor: 'start', dx: -10 }} />
-                <Tooltip formatter={(value, name) => [formatCurrency(value), name]} />
+                <Tooltip formatter={(value, name) => [formatBarValue(value), name]} />
                 <Bar dataKey="הכנסות" fill="#22c55e" />
                 <Bar dataKey="הוצאות" fill="#ef4444" />
               </BarChart>

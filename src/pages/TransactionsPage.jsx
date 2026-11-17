@@ -14,7 +14,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/he';
 import { parseIsracardSheet, parseMaxSheet } from '../lib/statementParsers';
 import { buildTransactionId } from '../lib/transactionId';
-import { amountError, formatMoney, MAX_AMOUNT_AGOROT } from '../lib/money';
+import { amountError, formatMoney, getAgorot, fromAgorot, MAX_AMOUNT_AGOROT } from '../lib/money';
 
 // Form messages for amountError() codes.
 const AMOUNT_MESSAGES = {
@@ -229,7 +229,7 @@ export default function TransactionsPage() {
     setFormData({
       date: tx.date,
       category: tx.category,
-      amount: tx.amount,
+      amount: fromAgorot(getAgorot(tx)),
     });
     setType(tx.type);
     setIsOpen(true);

@@ -1,4 +1,5 @@
 import { Trash2 } from 'lucide-react';
+import { getAgorot, formatMoney } from '../lib/money';
 
 // One transaction, rendered either as a mobile card (variant "card") or as a desktop
 // table row (variant "table"). The two variants share the same data and actions.
@@ -28,7 +29,7 @@ export default function TransactionRow({ tx, variant, index = 0, onEdit, onDelet
           {!tx.category && missingCategoryButton('לא נמצאה קטגוריה, לחץ להשלמה')}
         </div>
         <div className="text-sm"><strong>קטגוריה:</strong> {tx.category || '—'}</div>
-        <div className="text-sm"><strong>סכום:</strong> ₪{tx.amount}</div>
+        <div className="text-sm"><strong>סכום:</strong> {formatMoney(getAgorot(tx))}</div>
         <div className={`text-sm font-bold ${typeColor}`}>{tx.type}</div>
         <div className="flex justify-end gap-2 mt-2">{actions}</div>
       </div>
@@ -44,7 +45,7 @@ export default function TransactionRow({ tx, variant, index = 0, onEdit, onDelet
           {!tx.category && missingCategoryButton('לא נמצאה קטגוריה')}
         </div>
       </td>
-      <td className="px-2 py-1 text-sm">₪{tx.amount}</td>
+      <td className="px-2 py-1 text-sm">{formatMoney(getAgorot(tx))}</td>
       <td className={`px-2 py-1 text-sm font-bold ${typeColor}`}>{tx.type}</td>
       <td className="px-2 py-1">
         <div className="flex justify-end items-center gap-2">{actions}</div>
