@@ -24,6 +24,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import * as XLSX from 'xlsx';
 import dayjs from 'dayjs';
 import 'dayjs/locale/he';
+import { getLastDayOfPreviousMonth, computeIsracardChargeDate } from '../lib/importDates';
 
 dayjs.locale('he');
 
@@ -114,14 +115,6 @@ export default function TransactionsPage() {
     }
 
     return null;
-  }
-
-  function getLastDayOfPreviousMonth(dateStr) {
-    const d = new Date(dateStr);
-    if (Number.isNaN(d.getTime())) return null;
-
-    const lastDayPrev = new Date(d.getFullYear(), d.getMonth(), 0);
-    return lastDayPrev.toISOString().split('T')[0];
   }
 
   const parseIsracardDate = (value) => {
@@ -362,22 +355,7 @@ export default function TransactionsPage() {
 
           const billingStr = extractBillingDate(json.slice(0, 6), /לחיוב ב-(\d{2}\.\d{2})/);
 
-          let chargeDate = null;
-          if (billingStr) {
-            const [ddStr, mmStr] = billingStr.split('.');
-            const dd = parseInt(ddStr, 10);
-            const mm = parseInt(mmStr, 10);
-
-            if (!Number.isNaN(dd) && !Number.isNaN(mm)) {
-              chargeDate = new Date(headerYear, mm - 1, dd);
-            }
-          }
-
-          if (!chargeDate) {
-            chargeDate = new Date(headerYear, headerMonth - 1, 10);
-          }
-
-          const chargeDateStr = chargeDate.toISOString().split('T')[0];
+          const chargeDateStr = computeIsracardChargeDate({ headerYear, headerMonth, billingStr });
           const postingDate = getLastDayOfPreviousMonth(chargeDateStr);
           if (!postingDate) {
             console.warn('לא הצלחנו לחשב תאריך שיוך לישראכרט:', chargeDateStr);
