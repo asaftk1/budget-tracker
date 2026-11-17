@@ -6,7 +6,8 @@ import { Button } from '../components/ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Trash2 } from 'lucide-react';
+import TransactionRow from '../components/TransactionRow';
+import TransactionDialog from '../components/TransactionDialog';
 import ConfirmDialog from '../components/ConfirmDialog';
 import * as XLSX from 'xlsx';
 import dayjs from 'dayjs';
@@ -162,6 +163,21 @@ export default function TransactionsPage() {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const handleTransactionDialogOpenChange = (open) => {
+    setIsOpen(open);
+    setStep(0);
+    setEditTransaction(null);
+    if (!open) {
+      setFormData({ date: '', category: '', amount: '' });
+      setType('');
+    }
+  };
+
+  const handleSelectType = (selectedType) => {
+    setType(selectedType);
+    setStep(1);
+  };
+
   const handleSave = async () => {
     if (!formData.date || !formData.category || !formData.amount || !type) return;
 
@@ -278,58 +294,16 @@ export default function TransactionsPage() {
             </DialogContent>
           </Dialog>
 
-          <Dialog open={isOpen} onOpenChange={(open) => {
-            setIsOpen(open);
-            setStep(0);
-            setEditTransaction(null);
-            if (!open) {
-              setFormData({ date: '', category: '', amount: '' });
-              setType('');
-            }
-          }}>
-            <DialogTrigger asChild>
-              <Button className="bg-green-500 text-white">➕ הוסף פעולה</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[400px]">
-              <DialogHeader>
-                <DialogTitle>{step === 0 ? 'בחר סוג פעולה' : 'פרטי פעולה'}</DialogTitle>
-              </DialogHeader>
-
-              {step === 0 ? (
-                <div className="flex flex-col gap-4 mt-4">
-                  <Button className="bg-green-500 hover:bg-green-500 text-lg" onClick={() => { setType('הכנסה'); setStep(1); }}>💰 הכנסה</Button>
-                  <Button className="bg-red-500 hover:bg-red-500 text-lg" onClick={() => { setType('הוצאה'); setStep(1); }}>💸 הוצאה</Button>
-                </div>
-              ) : (
-                <div className="space-y-3 mt-4">
-                  <div>
-                    <Label htmlFor="date">תאריך</Label>
-                    <Input type="date" name="date" value={formData.date} onChange={handleChange} />
-                  </div>
-                  <div>
-                    <Label htmlFor="category">קטגוריה</Label>
-                    <Input
-                      list="category-options"
-                      name="category"
-                      value={formData.category}
-                      onChange={handleChange}
-                      className="text-base focus:scale-100 transition-transform"
-                    />
-                    <datalist id="category-options">
-                      {categories.map((cat, idx) => (
-                        <option key={idx} value={cat} />
-                      ))}
-                    </datalist>
-                  </div>
-                  <div>
-                    <Label htmlFor="amount">סכום</Label>
-                    <Input type="number" name="amount" value={formData.amount} onChange={handleChange} />
-                  </div>
-                  <Button className="w-full bg-green-600 text-white mt-2" onClick={handleSave}>שמור</Button>
-                </div>
-              )}
-            </DialogContent>
-          </Dialog>
+          <TransactionDialog
+            open={isOpen}
+            onOpenChange={handleTransactionDialogOpenChange}
+            step={step}
+            formData={formData}
+            categories={categories}
+            onChange={handleChange}
+            onSelectType={handleSelectType}
+            onSave={handleSave}
+          />
 
           <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
             <DialogTrigger asChild>
@@ -376,29 +350,14 @@ export default function TransactionsPage() {
 
             <div className="md:hidden space-y-3">
               {groupedByDate[date].map((tx) => (
-                <div key={tx.id} className="border rounded-lg p-3 shadow-sm">
-                  <div className="text-sm font-semibold flex items-center gap-2">
-                    {tx.merchant || 'ללא שם'}
-                    {!tx.category && (
-                      <button
-                        onClick={() => handleOpenMissingCat(tx)}
-                        className="text-amber-600 font-bold"
-                        title="לא נמצאה קטגוריה, לחץ להשלמה"
-                      >
-                        !
-                      </button>
-                    )}
-                  </div>
-                  <div className="text-sm"><strong>קטגוריה:</strong> {tx.category || '—'}</div>
-                  <div className="text-sm"><strong>סכום:</strong> ₪{tx.amount}</div>
-                  <div className={`text-sm font-bold ${tx.type === 'הכנסה' ? 'text-green-600' : 'text-red-500'}`}>{tx.type}</div>
-                  <div className="flex justify-end gap-2 mt-2">
-                    <button onClick={() => handleEdit(tx)} className="text-xs" aria-label="ערוך פעולה">✏️</button>
-                    <button onClick={() => setPendingDeleteId(tx.id)} aria-label="מחק פעולה">
-                      <Trash2 className="text-red-500 hover:text-red-700" size={14} />
-                    </button>
-                  </div>
-                </div>
+                <TransactionRow
+                  key={tx.id}
+                  tx={tx}
+                  variant="card"
+                  onEdit={handleEdit}
+                  onDelete={setPendingDeleteId}
+                  onMissingCategory={handleOpenMissingCat}
+                />
               ))}
             </div>
 
@@ -415,27 +374,15 @@ export default function TransactionsPage() {
                 </thead>
                 <tbody>
                   {groupedByDate[date].map((tx, i) => (
-                    <tr key={tx.id} className={i % 2 === 0 ? 'bg-gray-50' : ''}>
-                      <td className="px-2 py-1 text-sm font-semibold">{tx.merchant || 'ללא שם'}</td>
-                      <td className="px-2 py-1 text-sm">
-                        <div className="flex items-center gap-1">
-                          {tx.category || '—'}
-                          {!tx.category && (
-                            <button onClick={() => handleOpenMissingCat(tx)} className="text-amber-600 font-bold" title="לא נמצאה קטגוריה">!</button>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-2 py-1 text-sm">₪{tx.amount}</td>
-                      <td className={`px-2 py-1 text-sm font-bold ${tx.type === 'הכנסה' ? 'text-green-600' : 'text-red-500'}`}>{tx.type}</td>
-                      <td className="px-2 py-1">
-                        <div className="flex justify-end items-center gap-2">
-                          <button onClick={() => handleEdit(tx)} className="text-xs" aria-label="ערוך פעולה">✏️</button>
-                          <button onClick={() => setPendingDeleteId(tx.id)} aria-label="מחק פעולה">
-                            <Trash2 className="text-red-500 hover:text-red-700" size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                    <TransactionRow
+                      key={tx.id}
+                      tx={tx}
+                      variant="table"
+                      index={i}
+                      onEdit={handleEdit}
+                      onDelete={setPendingDeleteId}
+                      onMissingCategory={handleOpenMissingCat}
+                    />
                   ))}
                 </tbody>
               </table>

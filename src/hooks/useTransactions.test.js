@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { act } from 'react-dom/test-utils';
 import * as fs from 'firebase/firestore';
 import * as authMod from 'firebase/auth';
 import useTransactions, {
