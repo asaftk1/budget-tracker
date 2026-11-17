@@ -3,17 +3,18 @@ import { useState, useMemo } from 'react';
 import { useData } from '../contexts/DataContext';
 import PageState from '../components/PageState';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
+import { BarChart3, PieChart as PieChartIcon } from 'lucide-react';
 import { Input } from '../components/ui/input';
-import { fromAgorot, formatMoney } from '../lib/money';
+import { Label } from '../components/ui/label';
+import ExpenseBreakdown from '../components/ExpenseBreakdown';
+import IncomeExpenseBars from '../components/IncomeExpenseBars';
+import { fromAgorot } from '../lib/money';
 import { summarizeTransactions } from '../lib/summaries';
-import { CHART_COLORS } from '../constants';
 
 export default function AnalyticsPage() {
   const { transactions, loading, error } = useData();
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
-  const COLORS = CHART_COLORS.palette;
 
   const filtered = useMemo(() => {
     return transactions.filter(tx => {
@@ -43,12 +44,9 @@ export default function AnalyticsPage() {
     הוצאות: fromAgorot(totalExpense)
   }], [totalIncome, totalExpense]);
 
-  // Pie values and totals are agorot; bar chart values are shekels.
-  const formatBarValue = (shekels) => formatMoney(Math.round(shekels * 100));
-
   return (
-    <div dir="rtl" className="p-6 bg-gray-50 min-h-screen">
-      <h2 className="text-2xl font-bold mb-4">📈 ניתוח נתונים</h2>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold tracking-tight text-foreground">ניתוח נתונים</h1>
       <PageState
         loading={loading}
         error={error}
@@ -56,89 +54,55 @@ export default function AnalyticsPage() {
         isEmpty={transactions.length === 0}
         emptyMessage="אין נתונים להצגה עדיין. הוסף/י פעולות כדי לראות ניתוח."
       >
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        <div className="flex-1">
-          <label htmlFor="analytics-from" className="block mb-1 font-medium">מתאריך:</label>
+      <div className="grid max-w-xl grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="analytics-from">מתאריך:</Label>
           <Input id="analytics-from" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
         </div>
-        <div className="flex-1">
-          <label htmlFor="analytics-to" className="block mb-1 font-medium">עד תאריך:</label>
+        <div>
+          <Label htmlFor="analytics-to">עד תאריך:</Label>
           <Input id="analytics-to" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* פילוח הוצאות לפי קטגוריה */}
-        <Card>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+        {/* Expense breakdown by category */}
+        <Card className="lg:col-span-3">
           <CardHeader>
-            <CardTitle>🧾 פילוח הוצאות לפי קטגוריה</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <PieChartIcon size={20} className="text-muted-foreground" aria-hidden="true" />
+              פילוח הוצאות לפי קטגוריה
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {pieData.length > 0 ? (
-              <div className="flex flex-col md:flex-row gap-6">
-                {/* Pie */}
-                <div className="md:w-1/2">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie dataKey="value" data={pieData} cx="50%" cy="50%" outerRadius={100}>
-                        {pieData.map((_, index) => (
-                          <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value, name) => [formatMoney(value), name]} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* List with percents + amounts */}
-                <div className="md:w-1/2">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold">סה״כ הוצאות</span>
-                    <span className="font-bold">{formatMoney(totalExpenses)}</span>
-                  </div>
-                  <ul className="divide-y border rounded-lg bg-white">
-                    {pieData.map((item, idx) => {
-                      const percent = totalExpenses ? (item.value / totalExpenses) * 100 : 0;
-                      return (
-                        <li key={item.name} className="flex items-center gap-3 p-3">
-                          <span
-                            className="inline-block w-3 h-3 rounded-sm"
-                            style={{ backgroundColor: COLORS[idx % COLORS.length] }}
-                            aria-hidden
-                          />
-                          <div className="flex-1">
-                            <div className="font-medium">{item.name}</div>
-                            <div className="text-xs text-gray-500">
-                              {percent.toFixed(1)}% • {formatMoney(item.value)}
-                            </div>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              </div>
+              <ExpenseBreakdown data={pieData} total={totalExpenses} />
             ) : (
-              <p className="text-center text-gray-500">אין נתונים</p>
+              <p className="text-center text-muted-foreground">אין נתונים</p>
             )}
           </CardContent>
         </Card>
 
-        {/* הוצאות מול הכנסות */}
-        <Card>
+        {/* Expenses against income */}
+        <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>💵 הוצאות מול הכנסות</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 size={20} className="text-muted-foreground" aria-hidden="true" />
+              הוצאות מול הכנסות
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData}>
-                <XAxis dataKey="name" />
-                <YAxis tick={{ textAnchor: 'start', dx: -10 }} />
-                <Tooltip formatter={(value, name) => [formatBarValue(value), name]} />
-                <Bar dataKey="הכנסות" fill={CHART_COLORS.income} />
-                <Bar dataKey="הוצאות" fill={CHART_COLORS.expense} />
-              </BarChart>
-            </ResponsiveContainer>
+            <IncomeExpenseBars
+              data={chartData}
+              xKey="name"
+              incomeKey="הכנסות"
+              expenseKey="הוצאות"
+              incomeName="הכנסות"
+              expenseName="הוצאות"
+              ariaLabel="גרף עמודות של סך ההכנסות מול סך ההוצאות בטווח שנבחר"
+              height={300}
+              maxBarSize={64}
+            />
           </CardContent>
         </Card>
       </div>

@@ -96,7 +96,7 @@ export default function MainLayout({ children }) {
       </aside>
 
       {/* Main content: scrolls with the page, centred and capped on wide screens */}
-      <main className="min-w-0 flex-1 bg-canvas p-4 md:p-6">
+      <main className="min-w-0 flex-1 bg-canvas p-4 sm:p-6 lg:p-8">
         <div className="mx-auto w-full max-w-7xl">{children}</div>
       </main>
     </div>

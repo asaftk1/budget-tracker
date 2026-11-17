@@ -53,7 +53,7 @@ const typeAndAdd = async (value) => {
     Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), 'value').set.call(input, value);
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
-  const add = [...document.body.querySelectorAll('button')].find((b) => b.textContent.includes('➕'));
+  const add = [...document.body.querySelectorAll('button')].find((b) => b.textContent.includes('הוסף'));
   await act(async () => { add.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
 };
 
@@ -126,7 +126,7 @@ describe('CategoriesPage failed writes', () => {
     await renderPage();
     await typeAndAdd('Brand New');
     expect(alertText()).toBeTruthy();
-    const add = [...document.body.querySelectorAll('button')].find((b) => b.textContent.includes('➕'));
+    const add = [...document.body.querySelectorAll('button')].find((b) => b.textContent.includes('הוסף'));
     await act(async () => { add.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
     expect(alertText()).toBeUndefined();
     expect(input().value).toBe('');

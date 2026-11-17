@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { BarChart3, Clock, PieChart as PieChartIcon, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import Suggestions from '../components/Suggestions';
-import Money, { displayMoney } from '../components/Money';
+import Money from '../components/Money';
+import IncomeExpenseBars from '../components/IncomeExpenseBars';
 import ExpenseBreakdown from '../components/ExpenseBreakdown';
 import { formatDisplayDate } from '../lib/formatDate';
 import dayjs from 'dayjs';
@@ -11,7 +11,7 @@ import { useData } from '../contexts/DataContext';
 import PageState from '../components/PageState';
 import { getAgorot, fromAgorot } from '../lib/money';
 import { summarizeTransactions, monthKeyOf } from '../lib/summaries';
-import { TYPE, CHART_COLORS } from '../constants';
+import { TYPE } from '../constants';
 
 export default function Dashboard() {
     const { transactions, loading, error } = useData();
@@ -52,9 +52,6 @@ export default function Dashboard() {
         () => [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5),
         [transactions]
     );
-
-    // Chart values are shekels; the tooltip and the axis show them through formatMoney.
-    const shekelsToText = (shekels, options) => displayMoney(Math.round(shekels * 100), options);
 
     return (
         <div className="space-y-6">
@@ -112,45 +109,15 @@ export default function Dashboard() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {/* The chart is drawn left to right; the time axis and the value axis are
-                            mirrored below so it reads from the right, like the page. */}
-                        <div dir="ltr" role="img" aria-label="גרף עמודות של הכנסות והוצאות בששת החודשים האחרונים">
-                            <ResponsiveContainer width="100%" height={280}>
-                                <BarChart data={chartData} barGap={4} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
-                                    <CartesianGrid vertical={false} stroke={CHART_COLORS.grid} />
-                                    <XAxis
-                                        dataKey="month"
-                                        reversed
-                                        tickLine={false}
-                                        axisLine={false}
-                                        tick={{ fill: CHART_COLORS.axis, fontSize: 12 }}
-                                    />
-                                    <YAxis
-                                        orientation="right"
-                                        width={88}
-                                        domain={[0, 'auto']}
-                                        allowDecimals={false}
-                                        tickLine={false}
-                                        axisLine={false}
-                                        tick={{ fill: CHART_COLORS.axis, fontSize: 12 }}
-                                        tickFormatter={(v) => shekelsToText(v, { fractionDigits: 0 })}
-                                    />
-                                    <Tooltip
-                                        formatter={(v) => shekelsToText(v)}
-                                        cursor={{ fill: 'rgba(20, 32, 26, 0.04)' }}
-                                        contentStyle={{ direction: 'rtl', borderRadius: 12, borderColor: CHART_COLORS.grid }}
-                                    />
-                                    <Legend
-                                        verticalAlign="top"
-                                        align="right"
-                                        iconType="circle"
-                                        wrapperStyle={{ direction: 'rtl', paddingBottom: 8 }}
-                                    />
-                                    <Bar dataKey="income" fill={CHART_COLORS.income} name="הכנסה" radius={[6, 6, 0, 0]} maxBarSize={28} />
-                                    <Bar dataKey="expense" fill={CHART_COLORS.expense} name="הוצאה" radius={[6, 6, 0, 0]} maxBarSize={28} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
+                        <IncomeExpenseBars
+                            data={chartData}
+                            xKey="month"
+                            incomeKey="income"
+                            expenseKey="expense"
+                            incomeName="הכנסה"
+                            expenseName="הוצאה"
+                            ariaLabel="גרף עמודות של הכנסות והוצאות בששת החודשים האחרונים"
+                        />
                     </CardContent>
                 </Card>
 

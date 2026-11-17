@@ -41,10 +41,6 @@ module.exports = {
           foreground: token("primary-foreground"),
         },
         ring: token("ring"),
-
-        // Temporary: Analytics and Categories still use bg-gray-50, and the table rows keep it as
-        // the zebra class a test pins. Pointing it at the canvas keeps them in the page colour.
-        gray: { 50: token("canvas") },
       },
       borderColor: {
         DEFAULT: token("border"), // the colour of a plain `border` class
