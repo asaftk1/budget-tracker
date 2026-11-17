@@ -71,3 +71,20 @@ export function groupTransactionsByDate(transactions, selectedMonth) {
   }
   return groups;
 }
+
+// Group transactions by calendar day (key "YYYY-MM-DD") across all months, newest day first.
+// Used for search results. Missing or invalid dates are left out; the order inside a day is the
+// input order.
+export function groupTransactionsByDay(transactions) {
+  const groups = {};
+  for (const tx of transactions || []) {
+    if (!tx.date) continue;
+    const txDate = new Date(tx.date);
+    if (Number.isNaN(txDate.getTime())) continue;
+    const key = txDate.toISOString().split('T')[0];
+    (groups[key] = groups[key] || []).push(tx);
+  }
+  const sorted = {};
+  for (const key of Object.keys(groups).sort().reverse()) sorted[key] = groups[key];
+  return sorted;
+}

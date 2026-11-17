@@ -15,7 +15,8 @@ import 'dayjs/locale/he';
 import { parseIsracardSheet, parseMaxSheet } from '../lib/statementParsers';
 import { buildTransactionId } from '../lib/transactionId';
 import { dedupeCategories } from '../lib/categories';
-import { groupTransactionsByDate } from '../lib/summaries';
+import { groupTransactionsByDate, groupTransactionsByDay } from '../lib/summaries';
+import { EMPTY_FILTERS, filterTransactions, hasActiveFilter } from '../lib/filterTransactions';
 import { SOURCE } from '../constants';
 import { devLog } from '../lib/devLog';
 import { amountError, formatMoney, getAgorot, fromAgorot, MAX_AMOUNT_AGOROT } from '../lib/money';
@@ -44,8 +45,8 @@ export default function TransactionsPage() {
   const [type, setType] = useState('');
   const [formData, setFormData] = useState({ date: '', category: '', amount: '' });
   const [amountErrorCode, setAmountErrorCode] = useState(null);
-  const [searchType, setSearchType] = useState('');
-  const [searchDate, setSearchDate] = useState('');
+  // Search filters (see lib/filterTransactions). Separate from formData, which belongs to the add form.
+  const [search, setSearch] = useState(EMPTY_FILTERS);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [cardType, setCardType] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
@@ -59,11 +60,16 @@ export default function TransactionsPage() {
   const [saveError, setSaveError] = useState('');
   const [deleteError, setDeleteError] = useState('');
 
-  // Transactions of the selected month grouped by day.
+  // What the table shows, grouped by day. An active search covers all months and ignores the
+  // month picker; otherwise it is the selected month.
+  const searchActive = hasActiveFilter(search);
   const groupedByDate = useMemo(
-    () => groupTransactionsByDate(transactions, selectedMonth),
-    [transactions, selectedMonth]
+    () => (searchActive
+      ? groupTransactionsByDay(filterTransactions(transactions, search))
+      : groupTransactionsByDate(transactions, selectedMonth)),
+    [transactions, selectedMonth, search, searchActive]
   );
+  const updateSearch = (field) => (e) => setSearch((prev) => ({ ...prev, [field]: e.target.value }));
 
   // Maps parser warning codes to console messages.
   const warnImport = (code, detail) => {
@@ -273,43 +279,34 @@ export default function TransactionsPage() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[400px]">
               <DialogHeader>
-                <DialogTitle>בחר סוג חיפוש</DialogTitle>
+                <DialogTitle>חיפוש פעולות</DialogTitle>
               </DialogHeader>
 
-              {!searchType && (
-                <div className="flex flex-col gap-3 mt-4">
-                  <Button onClick={() => setSearchType('category')} className="bg-blue-100 hover:bg-blue-200">🔤 לפי קטגוריה</Button>
-                  <Button onClick={() => setSearchType('date')} className="bg-blue-100 hover:bg-blue-200">📅 לפי תאריך</Button>
-                </div>
-              )}
+              <div className="space-y-3 mt-4">
+                <Label htmlFor="search-text">טקסט (בית עסק, תיאור או קטגוריה)</Label>
+                <Input id="search-text" value={search.text} onChange={updateSearch('text')} />
 
-              {searchType === 'category' && (
-                <div className="space-y-3 mt-4">
-                  <Label htmlFor="search-category">קטגוריה</Label>
-                  <Input
-                    id="search-category"
-                    list="categories"
-                    name="category"
-                    value={formData.category}
-                    onChange={handleChange}
-                  />
-                  <datalist id="categories">
-                    {categoryOptions.map((cat) => (
-                      <option key={cat} value={cat} />
-                    ))}
-                  </datalist>
-                  <Button onClick={() => setSearchType('')}>🔙 חזור</Button>
-                </div>
-              )}
+                <Label htmlFor="search-category">קטגוריה</Label>
+                <Input
+                  id="search-category"
+                  list="categories"
+                  value={search.category}
+                  onChange={updateSearch('category')}
+                />
+                <datalist id="categories">
+                  {categoryOptions.map((cat) => (
+                    <option key={cat} value={cat} />
+                  ))}
+                </datalist>
 
-              {searchType === 'date' && (
-                <div className="space-y-3 mt-4">
-                  <Label htmlFor="search-month">בחר תאריך או חודש:</Label>
-                  <Input id="search-month" type="month" value={searchDate} onChange={(e) => setSearchDate(e.target.value)} />
-                  <Input type="date" aria-label="תאריך" value={searchDate} onChange={(e) => setSearchDate(e.target.value)} />
-                  <Button onClick={() => setSearchType('')}>🔙 חזור</Button>
-                </div>
-              )}
+                <Label htmlFor="search-from">מתאריך</Label>
+                <Input id="search-from" type="date" value={search.from} onChange={updateSearch('from')} />
+
+                <Label htmlFor="search-to">עד תאריך</Label>
+                <Input id="search-to" type="date" value={search.to} onChange={updateSearch('to')} />
+
+                <Button onClick={() => setSearch(EMPTY_FILTERS)}>🧹 נקה חיפוש</Button>
+              </div>
             </DialogContent>
           </Dialog>
 
@@ -356,6 +353,12 @@ export default function TransactionsPage() {
       <div className="bg-white rounded shadow p-4">
         <h3 className="text-xl font-semibold mb-4">📋 טבלת פעולות</h3>
         {deleteError && <p role="alert" className="text-red-600 text-sm mb-2">{deleteError}</p>}
+        {searchActive && (
+          <div role="status" className="mb-4 flex items-center gap-3 bg-blue-50 border border-blue-200 rounded px-3 py-2 text-sm">
+            <span>מציג תוצאות חיפוש מכל החודשים</span>
+            <Button onClick={() => setSearch(EMPTY_FILTERS)}>נקה חיפוש</Button>
+          </div>
+        )}
         <div className="mb-4">
           <label htmlFor="selected-month" className="font-semibold mr-2">בחר שנה וחודש:</label>
           <input
@@ -363,9 +366,14 @@ export default function TransactionsPage() {
             type="month"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
+            disabled={searchActive}
             className="border px-2 py-1 rounded"
           />
         </div>
+
+        {searchActive && Object.keys(groupedByDate).length === 0 && (
+          <p className="text-gray-600">לא נמצאו תוצאות</p>
+        )}
 
         {Object.keys(groupedByDate).map(date => (
           <div key={date} className="mb-6">

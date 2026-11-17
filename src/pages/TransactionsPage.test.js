@@ -150,6 +150,74 @@ describe('failed writes', () => {
   });
 });
 
+describe('search', () => {
+  const thisMonth = new Date().toISOString().slice(0, 10);
+  const otherMonth = '2020-02-10';
+  const rows = () => [
+    { id: 't1', date: thisMonth, type: 'expense', category: 'food', merchant: 'Shufersal', amountAgorot: 100 },
+    { id: 't2', date: otherMonth, type: 'expense', category: 'fun', merchant: 'Netflix', amountAgorot: 200 },
+    { id: 't3', date: otherMonth, type: 'expense', category: 'food', merchant: 'Cafe', amountAgorot: 300 },
+  ];
+  const merchants = () => [...document.body.querySelectorAll('tbody tr td:first-child')].map((td) => td.textContent);
+  const status = () => document.body.querySelector('[role=status]');
+
+  async function renderPage() {
+    hook.transactions = rows();
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    await act(async () => { createRoot(container).render(<TransactionsPage />); });
+  }
+  const openSearch = () => click(buttonWith('🔍'));
+
+  test('without a search it shows the selected month only, with no indicator', async () => {
+    await renderPage();
+    expect(merchants()).toEqual(['Shufersal']);
+    expect(status()).toBeNull();
+    expect(document.body.querySelector('#selected-month').disabled).toBe(false);
+  });
+
+  test('typing searches all months, shows the indicator and disables the month picker', async () => {
+    await renderPage();
+    await openSearch();
+    await setInput(document.body.querySelector('#search-text'), 'netflix');
+    expect(merchants()).toEqual(['Netflix']);
+    expect(status().textContent).toContain('מכל החודשים');
+    expect(document.body.querySelector('#selected-month').disabled).toBe(true);
+  });
+
+  test('category and date range filters apply, newest day first', async () => {
+    await renderPage();
+    await openSearch();
+    await setInput(document.body.querySelector('#search-category'), 'food');
+    expect(merchants()).toEqual(['Shufersal', 'Cafe']);
+    await setInput(document.body.querySelector('#search-to'), '2021-01-01');
+    expect(merchants()).toEqual(['Cafe']);
+  });
+
+  test('searching never touches the add form data', async () => {
+    await renderPage();
+    await openSearch();
+    await setInput(document.body.querySelector('#search-category'), 'food');
+    await click(document.body.querySelector('[role=dialog] button[aria-label], [role=dialog] button'));
+    // The add form starts empty even after a category was typed into the search.
+    await click(buttonWith('➕ הוסף'));
+    await click(buttonWith('💸'));
+    expect(document.body.querySelector('input[name=category]').value).toBe('');
+  });
+
+  test('no results shows a message; clear search returns to the monthly view', async () => {
+    await renderPage();
+    await openSearch();
+    await setInput(document.body.querySelector('#search-text'), 'zzz');
+    expect(merchants()).toEqual([]);
+    expect(document.body.textContent).toContain('לא נמצאו תוצאות');
+    await click([...document.body.querySelectorAll('[role=status] button')].find((b) => b.textContent.includes('נקה חיפוש')));
+    expect(status()).toBeNull();
+    expect(merchants()).toEqual(['Shufersal']);
+    expect(document.body.querySelector('#selected-month').disabled).toBe(false);
+  });
+});
+
 describe('memoised derivations', () => {
   test('typing in the add form does not regroup the transactions', async () => {
     hook.transactions = [{ id: 't1', date: new Date().toISOString().slice(0, 10), type: 'x', amount: 1 }];
@@ -179,8 +247,9 @@ describe('labels', () => {
     await act(async () => { createRoot(container).render(<TransactionsPage />); });
 
     await click(buttonWith('🔍'));
-    await click(buttonWith('🔤'));
-    expect(document.body.querySelector('label[for=search-category]')).not.toBeNull();
-    expect(document.getElementById('search-category')).not.toBeNull();
+    for (const id of ['search-text', 'search-category', 'search-from', 'search-to']) {
+      expect(document.body.querySelector(`label[for=${id}]`)).not.toBeNull();
+      expect(document.getElementById(id)).not.toBeNull();
+    }
   });
 });

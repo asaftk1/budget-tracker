@@ -1,4 +1,4 @@
-import { summarizeTransactions, groupTransactionsByDate, monthKeyOf } from './summaries';
+import { summarizeTransactions, groupTransactionsByDate, groupTransactionsByDay, monthKeyOf } from './summaries';
 import { sumAgorot, sumAgorotBy, getAgorot } from './money';
 import { TYPE, UNCATEGORIZED } from '../constants';
 
@@ -155,6 +155,24 @@ describe('groupTransactionsByDate', () => {
         expect(groupTransactionsByDate(data, month)).toEqual(previous(data, month));
       }
     }
+  });
+});
+
+describe('groupTransactionsByDay', () => {
+  test('groups across months, newest day first, keeping input order inside a day', () => {
+    const data = [
+      { id: 'a', date: '2025-03-01' },
+      { id: 'b', date: '2025-04-10' },
+      { id: 'c', date: '2025-03-01' },
+      { id: 'd', date: '2024-12-31' },
+    ];
+    const groups = groupTransactionsByDay(data);
+    expect(Object.keys(groups)).toEqual(['2025-04-10', '2025-03-01', '2024-12-31']);
+    expect(groups['2025-03-01'].map((t) => t.id)).toEqual(['a', 'c']);
+  });
+  test('leaves out missing and invalid dates; empty input gives no groups', () => {
+    expect(groupTransactionsByDay([{ id: 1 }, { id: 2, date: 'junk' }])).toEqual({});
+    expect(groupTransactionsByDay(undefined)).toEqual({});
   });
 });
 
