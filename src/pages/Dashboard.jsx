@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { db } from '../firebase';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
@@ -6,8 +6,9 @@ import { getAuth } from 'firebase/auth';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
 import Suggestions from '../components/Suggestions';
 import dayjs from 'dayjs';
-import { getAgorot, fromAgorot, formatMoney, sumAgorot, sumAgorotBy } from '../lib/money';
-import { TYPE, UNCATEGORIZED, CHART_COLORS } from '../constants';
+import { getAgorot, fromAgorot, formatMoney } from '../lib/money';
+import { summarizeTransactions, monthKeyOf } from '../lib/summaries';
+import { TYPE, CHART_COLORS } from '../constants';
 
 export default function Dashboard() {
     const [transactions, setTransactions] = useState([]);
@@ -26,38 +27,45 @@ export default function Dashboard() {
         return () => unsub();
     }, []);
 
-    // All money below is integer agorot until it is displayed or handed to a chart.
-    const totalIncome = sumAgorot(transactions.filter(tx => tx.type === TYPE.INCOME));
+    // One pass over the transactions for everything the page shows. Money stays in integer
+    // agorot until it is displayed or handed to a chart.
+    const currentMonth = dayjs().format('YYYY-MM');
+    const { totalIncome, totalExpense, expensesByCategory, chartData } = useMemo(() => {
+        // The last six months, oldest first.
+        const months = Array.from({ length: 6 }, (_, i) => {
+            const date = dayjs().startOf('month').subtract(5 - i, 'month').toDate();
+            return { key: monthKeyOf(date), label: date.toLocaleString('default', { month: 'short' }) };
+        });
 
-    const totalExpense = sumAgorot(transactions.filter(tx => tx.type === TYPE.EXPENSE));
+        const summary = summarizeTransactions(transactions, months.map(m => m.key));
+
+        // Charts take shekels; the sums themselves are exact agorot.
+        return {
+            ...summary,
+            chartData: months.map(({ key, label }) => ({
+                month: label,
+                income: fromAgorot(summary.monthly[key].income),
+                expense: fromAgorot(summary.monthly[key].expense),
+            })),
+        };
+        // currentMonth makes the six-month window roll over when the month changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [transactions, currentMonth]);
 
     const balance = totalIncome - totalExpense;
 
-    const expensesByCategory = sumAgorotBy(
-        transactions.filter(tx => tx.type === TYPE.EXPENSE),
-        tx => tx.category || UNCATEGORIZED
-    );
-
     const COLORS = CHART_COLORS.palette;
-    const pieData = Object.entries(expensesByCategory).map(([category, value]) => ({
-        name: category,
-        value
-    }));
-    const totalExpenses = pieData.reduce((sum, item) => sum + item.value, 0);
+    const pieData = useMemo(
+        () => Object.entries(expensesByCategory).map(([category, value]) => ({ name: category, value })),
+        [expensesByCategory]
+    );
+    const totalExpenses = totalExpense;
 
-    const chartData = Array.from({ length: 6 }, (_, i) => {
-        const date = dayjs().startOf('month').subtract(i, 'month').toDate();
-        const month = date.toLocaleString('default', { month: 'short' });
-
-        // Charts take shekels; the sums themselves are exact agorot.
-        const income = fromAgorot(sumAgorot(transactions
-            .filter(tx => tx.type === TYPE.INCOME && new Date(tx.date).getMonth() === date.getMonth() && new Date(tx.date).getFullYear() === date.getFullYear())));
-
-        const expense = fromAgorot(sumAgorot(transactions
-            .filter(tx => tx.type === TYPE.EXPENSE && new Date(tx.date).getMonth() === date.getMonth() && new Date(tx.date).getFullYear() === date.getFullYear())));
-
-        return { month, income, expense };
-    }).reverse();
+    // The five most recent transactions.
+    const recentTransactions = useMemo(
+        () => [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5),
+        [transactions]
+    );
 
     return (
         <div dir="rtl" className="min-h-screen bg-gray-50 p-6">
@@ -102,9 +110,7 @@ export default function Dashboard() {
                     </CardHeader>
                     <CardContent>
                         <ul className="space-y-3">
-                            {[...transactions]
-                                .sort((a, b) => new Date(b.date) - new Date(a.date))
-                                .slice(0, 5)
+                            {recentTransactions
                                 .map((tx) => (
                                     <li key={tx.id} className="flex justify-between">
                                         <div>

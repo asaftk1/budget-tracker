@@ -7,8 +7,9 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
 import { Input } from '../components/ui/input';
 import dayjs from 'dayjs';
-import { fromAgorot, formatMoney, sumAgorot, sumAgorotBy } from '../lib/money';
-import { TYPE, UNCATEGORIZED, CHART_COLORS } from '../constants';
+import { fromAgorot, formatMoney } from '../lib/money';
+import { summarizeTransactions } from '../lib/summaries';
+import { CHART_COLORS } from '../constants';
 
 export default function AnalyticsPage() {
   const [transactions, setTransactions] = useState([]);
@@ -33,18 +34,13 @@ export default function AnalyticsPage() {
     });
   }, [transactions, fromDate, toDate]);
 
-  // Per-category totals in integer agorot.
-  const expensesByCategory = useMemo(() => {
-    return sumAgorotBy(
-      filtered.filter(tx => tx.type === TYPE.EXPENSE),
-      tx => tx.category || UNCATEGORIZED
-    );
-  }, [filtered]);
-
-  const totalExpenses = useMemo(
-    () => Object.values(expensesByCategory).reduce((s, v) => s + v, 0),
-    [expensesByCategory]
+  // One pass over the filtered transactions: per-category expenses and the income/expense totals,
+  // all in integer agorot.
+  const { expensesByCategory, totalIncome, totalExpense } = useMemo(
+    () => summarizeTransactions(filtered),
+    [filtered]
   );
+  const totalExpenses = totalExpense;
 
   const pieData = useMemo(() => {
     const entries = Object.entries(expensesByCategory)
@@ -53,12 +49,12 @@ export default function AnalyticsPage() {
     return entries;
   }, [expensesByCategory]);
 
+  // The bar chart takes shekels; the sums themselves are exact agorot.
   const chartData = useMemo(() => [{
     name: 'סיכום',
-    // The bar chart takes shekels; the sums themselves are exact agorot.
-    הכנסות: fromAgorot(sumAgorot(filtered.filter(tx => tx.type === TYPE.INCOME))),
-    הוצאות: fromAgorot(sumAgorot(filtered.filter(tx => tx.type === TYPE.EXPENSE)))
-  }], [filtered]);
+    הכנסות: fromAgorot(totalIncome),
+    הוצאות: fromAgorot(totalExpense)
+  }], [totalIncome, totalExpense]);
 
   // Pie values and totals are agorot; bar chart values are shekels.
   const formatBarValue = (shekels) => formatMoney(Math.round(shekels * 100));

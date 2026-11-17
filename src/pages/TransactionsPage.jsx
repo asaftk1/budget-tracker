@@ -15,6 +15,7 @@ import 'dayjs/locale/he';
 import { parseIsracardSheet, parseMaxSheet } from '../lib/statementParsers';
 import { buildTransactionId } from '../lib/transactionId';
 import { dedupeCategories } from '../lib/categories';
+import { groupTransactionsByDate } from '../lib/summaries';
 import { SOURCE } from '../constants';
 import { amountError, formatMoney, getAgorot, fromAgorot, MAX_AMOUNT_AGOROT } from '../lib/money';
 
@@ -54,31 +55,11 @@ export default function TransactionsPage() {
   const [missingCatValue, setMissingCatValue] = useState('');
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
-  const groupedByDate = transactions.reduce((acc, tx) => {
-    const baseDate = tx.date;
-    if (!baseDate) return acc;
-
-    const txDate = new Date(baseDate);
-    if (Number.isNaN(txDate.getTime())) return acc;
-
-    const key = txDate.toISOString().split('T')[0];
-
-    if (selectedMonth) {
-      const [year, month] = selectedMonth.split('-');
-      if (
-        txDate.getFullYear().toString() !== year ||
-        (txDate.getMonth() + 1).toString().padStart(2, '0') !== month
-      ) {
-        return acc;
-      }
-    } else {
-      return acc;
-    }
-
-    acc[key] = acc[key] || [];
-    acc[key].push(tx);
-    return acc;
-  }, {});
+  // Transactions of the selected month grouped by day.
+  const groupedByDate = useMemo(
+    () => groupTransactionsByDate(transactions, selectedMonth),
+    [transactions, selectedMonth]
+  );
 
   // Maps parser warning codes to console messages.
   const warnImport = (code, detail) => {
@@ -264,10 +245,6 @@ export default function TransactionsPage() {
     setMissingCatTx(null);
     setMissingCatValue('');
   };
-
-  const filteredTransactions = transactions.filter((tx) =>
-    dayjs(tx.date).format('YYYY-MM') === selectedMonth
-  );
 
   return (
     <div dir="rtl" className="p-6 bg-gray-50 min-h-screen">

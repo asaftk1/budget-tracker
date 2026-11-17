@@ -2,7 +2,14 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import TransactionsPage from './TransactionsPage';
 import useTransactions from '../hooks/useTransactions';
+import { groupTransactionsByDate } from '../lib/summaries';
 
+// A spy around the real function. (CRA resets mock implementations before each test, so the real
+// one is put back in beforeEach.)
+jest.mock('../lib/summaries', () => ({
+  ...jest.requireActual('../lib/summaries'),
+  groupTransactionsByDate: jest.fn(),
+}));
 jest.mock('firebase/auth', () => ({ getAuth: jest.fn(() => ({ currentUser: { uid: 'u1' } })) }));
 jest.mock('../hooks/useTransactions', () => ({
   __esModule: true,
@@ -24,6 +31,7 @@ beforeEach(() => {
     updateTransactionCategory: jest.fn(),
   };
   useTransactions.mockReturnValue(hook);
+  groupTransactionsByDate.mockImplementation(jest.requireActual('../lib/summaries').groupTransactionsByDate);
 });
 
 const flush = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
@@ -100,5 +108,19 @@ describe('add form amount validation', () => {
     await setInput(amountInput(), '10000000');
     await submit();
     expect(hook.saveTransaction).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('memoised derivations', () => {
+  test('typing in the add form does not regroup the transactions', async () => {
+    hook.transactions = [{ id: 't1', date: new Date().toISOString().slice(0, 10), type: 'x', amount: 1 }];
+    await openAddForm();
+    const callsAfterOpen = groupTransactionsByDate.mock.calls.length;
+    expect(callsAfterOpen).toBeGreaterThan(0);
+
+    await setInput(amountInput(), '1');
+    await setInput(amountInput(), '12');
+    await setInput(amountInput(), '12.5');
+    expect(groupTransactionsByDate.mock.calls.length).toBe(callsAfterOpen);
   });
 });
