@@ -55,6 +55,9 @@ export default function TransactionsPage() {
   const [missingCatTx, setMissingCatTx] = useState(null);
   const [missingCatValue, setMissingCatValue] = useState('');
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  // Hebrew messages for failed writes. saveError shows inside the open dialog; deleteError above the table.
+  const [saveError, setSaveError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
 
   // Transactions of the selected month grouped by day.
   const groupedByDate = useMemo(
@@ -167,6 +170,7 @@ export default function TransactionsPage() {
     setStep(0);
     setEditTransaction(null);
     setAmountErrorCode(null);
+    setSaveError('');
     if (!open) {
       setFormData({ date: '', category: '', amount: '' });
       setType('');
@@ -186,7 +190,16 @@ export default function TransactionsPage() {
     }
     if (!formData.date || !formData.category || !type) return;
 
-    const saved = await saveTransaction({ formData, type, editTransaction });
+    // A failed write keeps the dialog open and the form as typed, so nothing is lost.
+    let saved;
+    try {
+      setSaveError('');
+      saved = await saveTransaction({ formData, type, editTransaction });
+    } catch (e) {
+      console.error('Failed to save transaction', e);
+      setSaveError('השמירה נכשלה. בדוק/י את החיבור ונסה/י שוב.');
+      return;
+    }
     if (!saved) return;
 
     setFormData({ date: '', category: '', amount: '' });
@@ -200,18 +213,20 @@ export default function TransactionsPage() {
   const handleConfirmDelete = async () => {
     const id = pendingDeleteId;
     setPendingDeleteId(null);
+    setDeleteError('');
     if (!id) return;
     try {
       await deleteTransaction(id);
     } catch (e) {
       console.error('Failed to delete transaction', e);
-      alert('מחיקת הפעולה נכשלה');
+      setDeleteError('מחיקת הפעולה נכשלה. נסה/י שוב.');
     }
   };
 
   const handleEdit = (tx) => {
     setEditTransaction(tx);
     setAmountErrorCode(null);
+    setSaveError('');
     setFormData({
       date: tx.date,
       category: tx.category,
@@ -304,6 +319,7 @@ export default function TransactionsPage() {
             step={step}
             formData={formData}
             amountError={amountErrorCode ? AMOUNT_MESSAGES[amountErrorCode] : ''}
+            saveError={saveError}
             categories={categoryOptions}
             onChange={handleChange}
             onSelectType={handleSelectType}
@@ -339,6 +355,7 @@ export default function TransactionsPage() {
 
       <div className="bg-white rounded shadow p-4">
         <h3 className="text-xl font-semibold mb-4">📋 טבלת פעולות</h3>
+        {deleteError && <p role="alert" className="text-red-600 text-sm mb-2">{deleteError}</p>}
         <div className="mb-4">
           <label htmlFor="selected-month" className="font-semibold mr-2">בחר שנה וחודש:</label>
           <input

@@ -111,6 +111,45 @@ describe('add form amount validation', () => {
   });
 });
 
+describe('failed writes', () => {
+  beforeEach(() => { jest.spyOn(console, 'error').mockImplementation(() => {}); });
+
+  test('a failed save keeps the dialog open and the form as typed, with a Hebrew error', async () => {
+    hook.saveTransaction.mockRejectedValue(new Error('offline'));
+    await openAddForm();
+    await setInput(amountInput(), '12.5');
+    await submit();
+    expect(document.body.querySelector('form')).not.toBeNull();
+    expect(amountInput().value).toBe('12.5');
+    expect(document.body.querySelector('input[name=category]').value).toBe('food');
+    expect(document.body.querySelector('[role=alert]').textContent).toContain('השמירה נכשלה');
+  });
+
+  test('after a failure, retrying and succeeding closes the dialog', async () => {
+    hook.saveTransaction.mockRejectedValueOnce(new Error('offline'));
+    await openAddForm();
+    await setInput(amountInput(), '12.5');
+    await submit();
+    await submit();
+    expect(hook.saveTransaction).toHaveBeenCalledTimes(2);
+    expect(document.body.querySelector('form')).toBeNull();
+  });
+
+  test('a failed delete shows an inline error and does not use alert()', async () => {
+    window.alert = jest.fn();
+    hook.transactions = [{ id: 't1', date: new Date().toISOString().slice(0, 10), type: 'expense', category: 'food', amountAgorot: 100 }];
+    hook.deleteTransaction.mockRejectedValue(new Error('offline'));
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    await act(async () => { createRoot(container).render(<TransactionsPage />); });
+    await click(document.body.querySelector('[aria-label*="מחק"]'));
+    await click(document.body.querySelector('.confirm'));
+    await flush();
+    expect(document.body.querySelector('[role=alert]').textContent).toContain('מחיקת הפעולה נכשלה');
+    expect(window.alert).not.toHaveBeenCalled();
+  });
+});
+
 describe('memoised derivations', () => {
   test('typing in the add form does not regroup the transactions', async () => {
     hook.transactions = [{ id: 't1', date: new Date().toISOString().slice(0, 10), type: 'x', amount: 1 }];

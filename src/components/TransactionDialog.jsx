@@ -8,6 +8,7 @@ import { TYPE } from '../constants';
 // Add/edit transaction dialog with its trigger button. It is controlled by the parent.
 //   step 0: choose income or expense; step 1: the details form.
 //   amountError: validation message for the amount field ('' when valid).
+//   saveError: message shown when the last save failed ('' otherwise); the form keeps its values.
 //   onSave: called on submit (button click or Enter); the parent validates and saves.
 //   onChange: input change handler for the form fields (named date, category, amount).
 //   onSelectType(type): called with TYPE.INCOME or TYPE.EXPENSE from step 0.
@@ -17,6 +18,7 @@ export default function TransactionDialog({
   step,
   formData,
   amountError = '',
+  saveError = '',
   categories,
   onChange,
   onSelectType,
@@ -84,6 +86,9 @@ export default function TransactionDialog({
                 <p id="amount-error" role="alert" className="text-red-600 text-sm mt-1">{amountError}</p>
               )}
             </div>
+            {saveError && (
+              <p role="alert" className="text-red-600 text-sm">{saveError}</p>
+            )}
             <Button type="submit" className="w-full bg-green-600 text-white mt-2">שמור</Button>
           </form>
         )}

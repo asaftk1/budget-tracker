@@ -37,7 +37,7 @@ beforeEach(() => {
     docs: existing.map((d) => ({ id: d.id, data: () => ({ name: d.name, uid: 'u1' }) })),
   }));
   fs.addDoc.mockResolvedValue({ id: 'new' });
-  window.alert = jest.fn();
+  window.alert = jest.fn(); // must stay unused: errors are shown inline
 });
 
 async function renderPage() {
@@ -59,7 +59,8 @@ describe('CategoriesPage uniqueness', () => {
   test.each([['food'], ['FOOD'], ['  Food  '], ['tRaVeL']])('refuses %p because it already exists in another case', async (value) => {
     await renderPage();
     await typeAndAdd(value);
-    expect(window.alert).toHaveBeenCalledTimes(1);
+    expect(window.alert).not.toHaveBeenCalled();
+    expect(document.body.querySelector('[role=alert]').textContent).toContain('כבר קיימת');
     expect(fs.addDoc).not.toHaveBeenCalled();
   });
 
@@ -81,5 +82,51 @@ describe('CategoriesPage uniqueness', () => {
     existing = [{ id: 'c1', name: 'Food' }, { id: 'c2', name: 'food' }];
     await renderPage();
     expect(document.body.querySelectorAll('li')).toHaveLength(2);
+  });
+});
+
+describe('CategoriesPage failed writes', () => {
+  const input = () => document.body.querySelector('input');
+  const alertText = () => document.body.querySelector('[role=alert]')?.textContent;
+
+  test('a failed add shows a Hebrew error and keeps the typed name', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    fs.addDoc.mockRejectedValue(new Error('offline'));
+    await renderPage();
+    await typeAndAdd('Brand New');
+    expect(alertText()).toContain('הוספת הקטגוריה נכשלה');
+    expect(input().value).toBe('Brand New');
+    expect(window.alert).not.toHaveBeenCalled();
+  });
+
+  test('a failed duplicate check also shows an error instead of throwing', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    fs.getDocs.mockRejectedValue(new Error('offline'));
+    await renderPage();
+    await typeAndAdd('Brand New');
+    expect(alertText()).toContain('הוספת הקטגוריה נכשלה');
+    expect(fs.addDoc).not.toHaveBeenCalled();
+  });
+
+  test('a failed delete shows a Hebrew error', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    fs.deleteDoc.mockRejectedValue(new Error('offline'));
+    await renderPage();
+    await act(async () => { document.body.querySelector('[aria-label^="מחק קטגוריה"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    const confirm = [...document.body.querySelectorAll('button')].find((b) => b.textContent.includes('אישור'));
+    await act(async () => { confirm.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(alertText()).toContain('מחיקת הקטגוריה נכשלה');
+  });
+
+  test('a successful add clears any earlier error and the field', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    fs.addDoc.mockRejectedValueOnce(new Error('offline'));
+    await renderPage();
+    await typeAndAdd('Brand New');
+    expect(alertText()).toBeTruthy();
+    const add = [...document.body.querySelectorAll('button')].find((b) => b.textContent.includes('➕'));
+    await act(async () => { add.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(alertText()).toBeUndefined();
+    expect(input().value).toBe('');
   });
 });

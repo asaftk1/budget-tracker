@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { db } from '../firebase';
-import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc } from 'firebase/firestore'; // ✅ הוספנו deleteDoc, doc
+import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
@@ -13,6 +13,8 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState([]);
   const [newCategory, setNewCategory] = useState('');
   const [pendingDelete, setPendingDelete] = useState(null);
+  // Inline Hebrew message for a refused or failed add/delete (replaces alert()).
+  const [error, setError] = useState('');
   const user = getAuth().currentUser;
 
   useEffect(() => {
@@ -28,14 +30,22 @@ export default function CategoriesPage() {
     const name = cleanCategoryName(newCategory);
     if (!name || !user) return;
 
-    // Read the user's categories and compare case-insensitively; Firestore cannot do that itself.
-    const snapshot = await getDocs(query(collection(db, 'categories'), where('uid', '==', user.uid)));
-    if (hasCategory(snapshot.docs.map((d) => d.data().name), name)) {
-      alert('⚠️ הקטגוריה כבר קיימת');
+    setError('');
+    try {
+      // Read the user's categories and compare case-insensitively; Firestore cannot do that itself.
+      const snapshot = await getDocs(query(collection(db, 'categories'), where('uid', '==', user.uid)));
+      if (hasCategory(snapshot.docs.map((d) => d.data().name), name)) {
+        setError('⚠️ הקטגוריה כבר קיימת');
+        return;
+      }
+
+      await addDoc(collection(db, 'categories'), { name, uid: user.uid });
+    } catch (e) {
+      // The typed name stays in the field so the user can retry.
+      console.error('Failed to add category', e);
+      setError('הוספת הקטגוריה נכשלה. נסה/י שוב.');
       return;
     }
-
-    await addDoc(collection(db, 'categories'), { name, uid: user.uid });
     setNewCategory('');
   };
 
@@ -43,11 +53,12 @@ export default function CategoriesPage() {
     const id = pendingDelete?.id;
     setPendingDelete(null);
     if (!id) return;
+    setError('');
     try {
       await deleteDoc(doc(db, 'categories', id));
     } catch (e) {
       console.error('Failed to delete category', e);
-      alert('מחיקת הקטגוריה נכשלה');
+      setError('מחיקת הקטגוריה נכשלה. נסה/י שוב.');
     }
   };
 
@@ -77,6 +88,7 @@ export default function CategoriesPage() {
         />
         <Button onClick={addCategory}>➕ הוסף</Button>
       </div>
+      {error && <p role="alert" className="text-red-600 text-sm mt-2">{error}</p>}
       {pendingDelete && (
         <ConfirmDialog
           message={`למחוק את הקטגוריה "${pendingDelete.name}"?`}
