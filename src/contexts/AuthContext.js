@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import {
   getAuth,
   onAuthStateChanged,
@@ -15,9 +15,33 @@ import { app } from "../firebase"; // make sure you export initialized app from 
 
 const AuthContext = createContext(null);
 
+// The Firebase user object is mutated in place by reload(), so putting it in state never triggers a
+// re-render when emailVerified changes. The context holds an immutable snapshot of the fields the
+// app reads instead; a new snapshot object is created whenever one of them changes.
+export function userSnapshot(u) {
+  if (!u) return null;
+  return {
+    uid: u.uid,
+    email: u.email,
+    displayName: u.displayName,
+    photoURL: u.photoURL,
+    emailVerified: u.emailVerified,
+  };
+}
+
+const sameSnapshot = (a, b) =>
+  a === b || (!!a && !!b && Object.keys(a).every((k) => a[k] === b[k]));
+
 export function AuthProvider({ children }) {
   const auth = getAuth(app);
   const [user, setUser] = useState(undefined);
+
+  // Publish the current state of a Firebase user; keeps the old snapshot (no re-render) when
+  // nothing the app reads has changed.
+  const updateUser = useCallback((u) => {
+    const next = userSnapshot(u);
+    setUser((prev) => (prev !== undefined && sameSnapshot(prev, next) ? prev : next));
+  }, []);
 
   useEffect(() => {
     // persist auth across refreshes
@@ -25,12 +49,12 @@ export function AuthProvider({ children }) {
     return onAuthStateChanged(auth, async (u) => {
       if (u) {
         try { await u.reload(); } catch {}
-        setUser(u);
+        updateUser(u);
       } else {
         setUser(null);
       }
     });
-  }, [auth]);
+  }, [auth, updateUser]);
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
@@ -51,6 +75,7 @@ export function AuthProvider({ children }) {
   const signInWithEmail = async (email, password) => {
     const cred = await signInWithEmailAndPassword(auth, email, password);
     await cred.user.reload();
+    updateUser(cred.user);
     if (!cred.user.emailVerified) {
       const e = new Error("Email not verified");
       e.code = "auth/email-not-verified";
@@ -62,6 +87,7 @@ export function AuthProvider({ children }) {
   const resendVerification = async () => {
     if (!auth.currentUser) throw new Error("auth/no-current-user");
     await auth.currentUser.reload();
+    updateUser(auth.currentUser);
     if (auth.currentUser.emailVerified) return true;
     await sendEmailVerification(auth.currentUser);
     return true;

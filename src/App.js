@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { RequireAuth, PublicRoute } from "./components/RouteGuards";
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -8,24 +8,6 @@ import MainLayout from "./layouts/MainLayout";
 import TransactionsPage from "./pages/TransactionsPage";
 import CategoriesPage from "./pages/CategoriesPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
-
-const auth = getAuth();
-
-function RequireAuth({ children }) {
-  const [user, setUser] = useState(undefined);
-  useEffect(() => onAuthStateChanged(auth, setUser), []);
-  if (user === undefined) return null;
-  if (!user || !user.emailVerified) return <Navigate to="/login" replace />;
-  return children;
-}
-
-function PublicRoute({ children }) {
-  const [user, setUser] = useState(undefined);
-  useEffect(() => onAuthStateChanged(auth, setUser), []);
-  if (user === undefined) return null;
-  if (user && user.emailVerified) return <Navigate to="/dashboard" replace />;
-  return children;
-}
 
 export default function App() {
   return (
