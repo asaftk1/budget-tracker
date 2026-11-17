@@ -8,7 +8,7 @@ import ExpenseBreakdown from '../components/ExpenseBreakdown';
 import { formatDisplayDate } from '../lib/formatDate';
 import dayjs from 'dayjs';
 import { useData } from '../contexts/DataContext';
-import PageState from '../components/PageState';
+import PageState, { StateMessage } from '../components/PageState';
 import { getAgorot, fromAgorot } from '../lib/money';
 import { summarizeTransactions, monthKeyOf } from '../lib/summaries';
 import { TYPE } from '../constants';
@@ -161,7 +161,9 @@ export default function Dashboard() {
                     {pieData.length > 0 ? (
                         <ExpenseBreakdown data={pieData} total={totalExpense} />
                     ) : (
-                        <p className="text-center text-muted-foreground">אין עדיין הוצאות להצגה</p>
+                        <StateMessage icon={PieChartIcon} compact>
+                            <p className="text-muted-foreground">אין עדיין הוצאות להצגה</p>
+                        </StateMessage>
                     )}
                 </CardContent>
             </Card>

@@ -1,9 +1,10 @@
 // src/components/Suggestions.jsx
 import { useState } from "react";
-import { Lightbulb } from "lucide-react";
+import { Lightbulb, Sparkles } from "lucide-react";
 import useSuggestions from "../insights/useSuggestions";
 import { Button } from "./ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
+import { StateMessage } from "./PageState";
 
 // How many suggestions show before "show more".
 const COLLAPSED_COUNT = 5;
@@ -13,7 +14,11 @@ export default function Suggestions({ transactions, onAskAi }) {
   const [expanded, setExpanded] = useState(false);
 
   if (!transactions?.length) {
-    return <p className="text-muted-foreground">אין נתונים להצגה.</p>;
+    return (
+      <StateMessage icon={Lightbulb} compact>
+        <p className="text-muted-foreground">אין נתונים להצגה.</p>
+      </StateMessage>
+    );
   }
 
   const visible = expanded ? suggestions : suggestions.slice(0, COLLAPSED_COUNT);
@@ -35,7 +40,9 @@ export default function Suggestions({ transactions, onAskAi }) {
 
       <CardContent>
         {suggestions.length === 0 ? (
-          <p className="text-muted-foreground">אין ממצאים מיוחדים כרגע</p>
+          <StateMessage icon={Sparkles} compact>
+            <p className="text-muted-foreground">אין ממצאים מיוחדים כרגע</p>
+          </StateMessage>
         ) : (
           <>
             <ul id="suggestions-list" className="space-y-3">

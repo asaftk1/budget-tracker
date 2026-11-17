@@ -2,13 +2,13 @@
 import { useMemo, useState } from 'react';
 import { getAuth } from 'firebase/auth';
 import useTransactions, { loadMerchantCategoryMap, commitTransactions } from '../hooks/useTransactions';
-import { ArrowRight, CreditCard, Eraser, Search, Table, Upload } from 'lucide-react';
+import { ArrowRight, CalendarX, CreditCard, Eraser, Search, SearchX, Table, Upload } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import PageState from '../components/PageState';
+import PageState, { StateMessage } from '../components/PageState';
 import TransactionRow from '../components/TransactionRow';
 import TransactionDialog from '../components/TransactionDialog';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -494,10 +494,14 @@ export default function TransactionsPage() {
           emptyMessage="אין עדיין פעולות. הוסף/י פעולה או ייבא/י קובץ אשראי."
         >
         {searchActive && days.length === 0 && (
-          <p className="text-muted-foreground">לא נמצאו תוצאות</p>
+          <StateMessage icon={SearchX} compact>
+            <p className="text-muted-foreground">לא נמצאו תוצאות</p>
+          </StateMessage>
         )}
         {!searchActive && days.length === 0 && (
-          <p className="text-muted-foreground">אין פעולות בחודש הזה</p>
+          <StateMessage icon={CalendarX} compact>
+            <p className="text-muted-foreground">אין פעולות בחודש הזה</p>
+          </StateMessage>
         )}
 
         {/* Mobile: one card per transaction under a heading for each day */}

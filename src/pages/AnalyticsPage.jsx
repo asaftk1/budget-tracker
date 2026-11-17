@@ -1,7 +1,7 @@
 // src/pages/AnalyticsPage.jsx
 import { useState, useMemo } from 'react';
 import { useData } from '../contexts/DataContext';
-import PageState from '../components/PageState';
+import PageState, { StateMessage } from '../components/PageState';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
 import { BarChart3, PieChart as PieChartIcon } from 'lucide-react';
 import { Input } from '../components/ui/input';
@@ -78,7 +78,9 @@ export default function AnalyticsPage() {
             {pieData.length > 0 ? (
               <ExpenseBreakdown data={pieData} total={totalExpenses} />
             ) : (
-              <p className="text-center text-muted-foreground">אין נתונים</p>
+              <StateMessage icon={PieChartIcon} compact>
+                <p className="text-muted-foreground">אין נתונים</p>
+              </StateMessage>
             )}
           </CardContent>
         </Card>
