@@ -124,6 +124,14 @@ describe('groupTransactionsByDate', () => {
     expect(result['2025-03-05'].map((t) => t.id)).toEqual(['a', 'b']);
   });
 
+  test('orders the days chronologically whatever the input order', () => {
+    const result = groupTransactionsByDate(
+      [tx('a', '2026-06-29'), tx('b', '2026-06-10'), tx('c', '2026-06-05'), tx('d', '2026-06-01'), tx('e', '2026-06-03')],
+      '2026-06'
+    );
+    expect(Object.keys(result)).toEqual(['2026-06-01', '2026-06-03', '2026-06-05', '2026-06-10', '2026-06-29']);
+  });
+
   test('skips missing and invalid dates; no month selected selects nothing', () => {
     const items = [tx('a', ''), tx('b', undefined), tx('c', 'garbage'), tx('d', '2025-03-05')];
     expect(Object.keys(groupTransactionsByDate(items, '2025-03'))).toEqual(['2025-03-05']);

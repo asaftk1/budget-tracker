@@ -46,8 +46,11 @@ export function summarizeTransactions(transactions, monthKeys = []) {
   return { totalIncome, totalExpense, expensesByCategory, monthly };
 }
 
-// Group transactions by calendar day (key "YYYY-MM-DD") for one month ("YYYY-MM").
+// Group transactions by calendar day (key "YYYY-MM-DD") for one month ("YYYY-MM"), oldest day first.
 // Transactions with a missing or invalid date are left out; an empty month selects nothing.
+// The order inside a day is the input order.
+// Intentional: the month view lists days oldest first (like a statement), while the search view
+// (groupTransactionsByDay below) lists them newest first.
 export function groupTransactionsByDate(transactions, selectedMonth) {
   const groups = {};
   if (!selectedMonth) return groups;
@@ -69,10 +72,14 @@ export function groupTransactionsByDate(transactions, selectedMonth) {
     const key = txDate.toISOString().split('T')[0];
     (groups[key] = groups[key] || []).push(tx);
   }
-  return groups;
+  // The keys are YYYY-MM-DD strings, so a plain string sort is chronological.
+  const sorted = {};
+  for (const key of Object.keys(groups).sort()) sorted[key] = groups[key];
+  return sorted;
 }
 
 // Group transactions by calendar day (key "YYYY-MM-DD") across all months, newest day first.
+// Intentional: this is the opposite direction of groupTransactionsByDate (month view, oldest first).
 // Used for search results. Missing or invalid dates are left out; the order inside a day is the
 // input order.
 export function groupTransactionsByDay(transactions) {
