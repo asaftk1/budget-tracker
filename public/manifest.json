@@ -1,11 +1,11 @@
 {
-  "name": "Balance",
-  "short_name": "Balance",
+  "name": "מעקב תקציב",
+  "short_name": "מעקב תקציב",
   "display": "standalone",
   "scope": "/",
   "start_url": "/login",
-  "background_color": "#ffffff",
-  "theme_color": "#16a34a",
+  "background_color": "#f6f7f5",
+  "theme_color": "#f6f7f5",
    "icons": [
     {
       "src": "favicon.ico",
@@ -24,6 +24,6 @@
     }
   ],
   "shortcuts": [
-    { "name": "Open Balance", "short_name": "Open", "url": "/login" }
+    { "name": "פתיחת מעקב תקציב", "short_name": "פתיחה", "url": "/login" }
   ]
 }

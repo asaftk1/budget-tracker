@@ -47,4 +47,29 @@ describe('Button', () => {
     await act(async () => { b.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
     expect(onClick).toHaveBeenCalledTimes(1);
   });
+
+  test('size variants set the height and the size prop is not leaked to the DOM', async () => {
+    const sm = await render(<Button size="sm">a</Button>);
+    const lg = await render(<Button size="lg">a</Button>);
+    const md = await render(<Button>a</Button>);
+    expect(sm.className).toContain('h-8');
+    expect(md.className).toContain('h-10');
+    expect(lg.className).toContain('h-12');
+    expect(sm.hasAttribute('size')).toBe(false);
+  });
+
+  test('has a visible keyboard focus ring and a disabled state', async () => {
+    const b = await render(<Button disabled>go</Button>);
+    expect(b.className).toContain('focus-visible:ring-2');
+    expect(b.className).toContain('disabled:opacity-50');
+    expect(b.disabled).toBe(true);
+  });
+
+  test('the destructive variant uses the danger background and the secondary one a light tint', async () => {
+    const d = await render(<Button variant="destructive">x</Button>);
+    const s = await render(<Button variant="secondary">x</Button>);
+    expect(d.className).toContain('bg-danger');
+    expect(s.className).toContain('bg-primary-soft');
+    expect(s.className).not.toContain('text-white');
+  });
 });
