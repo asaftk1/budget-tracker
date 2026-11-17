@@ -16,7 +16,7 @@ export default function MainLayout({ children }) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row-reverse">
+    <div className="min-h-screen flex flex-col md:flex-row">
 
       {/* כפתור תפריט במובייל */}
       <div className="md:hidden flex justify-between items-center p-4 bg-white border-b">
@@ -27,7 +27,7 @@ export default function MainLayout({ children }) {
       </div>
 
       {/* Sidebar */}
-      <aside className={`w-full md:w-64 bg-white border-l p-4 flex flex-col justify-between 
+      <aside className={`w-full md:w-64 bg-white md:border-e p-4 flex flex-col justify-between 
         ${sidebarOpen ? 'block' : 'hidden'} md:flex h-full md:h-screen`}>
         <div>
           <h2 className="text-2xl font-bold text-green-600 mb-6 hidden md:block">Balance</h2>
