@@ -71,11 +71,18 @@ Re-importing the same file overwrites the same documents (deterministic IDs). Ro
 
 `src/category_api.py` (Flask) and `src/smart_reclassify.py` are standalone helper scripts, not part of the web app.
 
-## 🧮 Migration: amountAgorot (one-off, optional)
+## 🧮 Migration: amountAgorot (done)
 
-Older `transactions` documents only have `amount` (ILS). `scripts/migrate-amount-agorot.mjs` adds the integer
-`amountAgorot` to them. It only writes that one field, skips and lists documents with a zero, negative, missing,
-NaN or out-of-range amount, and is safe to run twice. Default is a dry run; writing needs `--apply --project <id>`.
+All `transactions` documents now have the integer `amountAgorot` (1 ILS = 100 agorot). The migration is done and
+the temporary legacy fallback in `firestore.rules` has been removed: every create **and every update** of a
+transaction must leave a valid `amountAgorot` (integer, 1 to 1,000,000,000). A document without it can still be read
+and deleted, but it cannot be updated until it is given a valid `amountAgorot`.
+
+The old `amount` field (ILS number) is still written alongside `amountAgorot` and is derived from it. The app reads
+`amountAgorot` and only falls back to `amount` for display of documents that lack it.
+
+The one-off script is kept for reference or for fixing stragglers. It only writes `amountAgorot`, lists documents it
+skips (zero, negative, NaN, missing or out-of-range amounts), is idempotent, and is a dry run unless `--apply` is given:
 
 ```bash
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
@@ -83,4 +90,4 @@ npm run migrate:amount-agorot -- --project <project-id>            # dry run
 npm run migrate:amount-agorot -- --project <project-id> --apply    # write
 ```
 
-Requires Node 22+. See the header of the script for all options.
+Requires Node 22+. See the header of `scripts/migrate-amount-agorot.mjs` for all options.

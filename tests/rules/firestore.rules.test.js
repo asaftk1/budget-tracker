@@ -192,8 +192,10 @@ describe('transactions bulk import writes (deterministic ids, batched set)', () 
   });
 });
 
-// amountAgorot rules for transactions: new documents need a valid integer; documents created
-// before the field existed (legacy) must stay updatable without it.
+// amountAgorot rules for transactions: every create and every update must leave the document
+// with a valid integer amountAgorot. A document that still lacks it can be read and deleted,
+// and can only be updated by a write that adds a valid amountAgorot (the migration does this
+// with the Admin SDK, which is not subject to rules).
 describe('transactions amountAgorot', () => {
   const MAX = 1_000_000_000;
   const legacyDoc = { uid: OWNER, date: '2025-03-01', type: 'expense', amount: 12.5, category: 'c', merchant: 'm' };
@@ -226,14 +228,16 @@ describe('transactions amountAgorot', () => {
     );
   });
 
-  describe('legacy documents (no amountAgorot) keep working', () => {
-    it('can be read', async () => assertSucceeds(col(verified(OWNER)).doc('legacy').get()));
-    it('can be deleted', async () => assertSucceeds(col(verified(OWNER)).doc('legacy').delete()));
-    it('can be updated with a partial change (missing-category dialog)', async () =>
-      assertSucceeds(col(verified(OWNER)).doc('legacy').update({ category: 'z' })));
-    it('can be overwritten by a legacy-style payload (stale client edit)', async () =>
-      assertSucceeds(col(verified(OWNER)).doc('legacy').set({ ...legacyDoc, amount: 20 })));
-    it('can be updated by a new client that adds a valid amountAgorot', async () =>
+  describe('documents without amountAgorot (not migrated)', () => {
+    it('can still be read', async () => assertSucceeds(col(verified(OWNER)).doc('legacy').get()));
+    it('can still be deleted', async () => assertSucceeds(col(verified(OWNER)).doc('legacy').delete()));
+    it('cannot be updated with a partial change that leaves amountAgorot missing', async () =>
+      assertFails(col(verified(OWNER)).doc('legacy').update({ category: 'z' })));
+    it('cannot be overwritten by a legacy-style payload without amountAgorot', async () =>
+      assertFails(col(verified(OWNER)).doc('legacy').set({ ...legacyDoc, amount: 20 })));
+    it('an update without amountAgorot is denied even if it changes the old amount', async () =>
+      assertFails(col(verified(OWNER)).doc('legacy').update({ amount: 20 })));
+    it('can be updated by a write that adds a valid amountAgorot', async () =>
       assertSucceeds(col(verified(OWNER)).doc('legacy').set({ ...legacyDoc, amount: 20, amountAgorot: 2000 })));
     each(
       [['a float', 12.5], ['zero', 0], ['negative', -5], ['above the bound', MAX + 1], ['a string', '10']],

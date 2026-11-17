@@ -29,24 +29,18 @@ service cloud.firestore {
     }
 
     // Transaction amounts are stored as integer agorot (1 ILS = 100 agorot):
-    // a positive integer, at most 10,000,000.00 ILS.
+    // a positive integer, at most 10,000,000.00 ILS. Every create and every update must
+    // leave the document with a valid amountAgorot.
     function validAgorot() {
       return request.resource.data.amountAgorot is int
         && request.resource.data.amountAgorot >= 1
         && request.resource.data.amountAgorot <= 1000000000;
     }
 
-    // Documents created before amountAgorot existed may keep being updated without it.
-    // Remove this exemption (and its use below) once every document has been migrated.
-    function legacyUntouched() {
-      return !('amountAgorot' in resource.data)
-        && !('amountAgorot' in request.resource.data);
-    }
-
     match /transactions/{docId} {
       allow read, delete: if ownsExisting();
       allow create: if createsOwn() && validAgorot();
-      allow update: if updatesOwn() && (validAgorot() || legacyUntouched());
+      allow update: if updatesOwn() && validAgorot();
     }
 
     match /categories/{docId} {
