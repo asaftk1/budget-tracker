@@ -27,3 +27,6 @@ src/serviceAccount.json
 
 # firebase
 .firebase/
+
+# firebase emulator logs
+*-debug.log

@@ -15,7 +15,9 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
     "autoprefixer": "^10.4.19",
+    "firebase-tools": "^15.36.0",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3"
   },
@@ -23,7 +25,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-budget-tracker \"node --test tests/rules/*.test.js\""
   },
   "eslintConfig": {
     "extends": [
