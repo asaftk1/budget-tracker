@@ -17,7 +17,7 @@ const OTHER = 'bob';
 const COLLECTIONS = {
   transactions: {
     id: 'tx1',
-    data: (uid) => ({ uid, date: '2026-01-15', type: 'expense', amount: 10, category: 'food' }),
+    data: (uid) => ({ uid, date: '2026-01-15', type: 'expense', amount: 10, amountAgorot: 1000, category: 'food' }),
   },
   categories: {
     id: 'cat1',
@@ -29,6 +29,9 @@ const COLLECTIONS = {
     data: (uid) => ({ uid, merchant: 'shop', merchantNormalized: 'shop', category: 'food' }),
   },
 };
+
+// node:test has no it.each; run one test per case.
+const each = (cases, title, fn) => cases.forEach((c) => it(title(...c), () => fn(...c)));
 
 let testEnv;
 
@@ -131,7 +134,7 @@ describe('merchantCategories document id prefix', () => {
 
 // The importer writes imported transactions with deterministic ids via writeBatch + set().
 describe('transactions bulk import writes (deterministic ids, batched set)', () => {
-  const tx = (uid, extra = {}) => ({ uid, date: '2025-02-28', type: 'expense', amount: 10, source: 'max', ...extra });
+  const tx = (uid, extra = {}) => ({ uid, date: '2025-02-28', type: 'expense', amount: 10, amountAgorot: 1000, source: 'max', ...extra });
   const col = (db) => db.collection('transactions');
 
   it('set on a new deterministic id is allowed (create)', async () =>
@@ -140,7 +143,7 @@ describe('transactions bulk import writes (deterministic ids, batched set)', () 
   it('set again on the same id is allowed (re-import overwrites as an update)', async () => {
     const db = verified(OWNER);
     await assertSucceeds(col(db).doc('max_newid').set(tx(OWNER)));
-    await assertSucceeds(col(db).doc('max_newid').set(tx(OWNER, { amount: 11 })));
+    await assertSucceeds(col(db).doc('max_newid').set(tx(OWNER, { amount: 11, amountAgorot: 1100 })));
   });
 
   it('set over another user\'s document id is denied', async () =>
@@ -157,7 +160,7 @@ describe('transactions bulk import writes (deterministic ids, batched set)', () 
     const batch = db.batch();
     batch.set(col(db).doc('max_a'), tx(OWNER));
     batch.set(col(db).doc('max_b'), tx(OWNER));
-    batch.set(col(db).doc('tx1'), tx(OWNER, { amount: 99 }));
+    batch.set(col(db).doc('tx1'), tx(OWNER, { amount: 99, amountAgorot: 9900 }));
     await assertSucceeds(batch.commit());
   });
 
@@ -186,6 +189,90 @@ describe('transactions bulk import writes (deterministic ids, batched set)', () 
     const batch = db.batch();
     batch.set(col(db).doc('max_unv'), tx(OWNER));
     await assertFails(batch.commit());
+  });
+});
+
+// amountAgorot rules for transactions: new documents need a valid integer; documents created
+// before the field existed (legacy) must stay updatable without it.
+describe('transactions amountAgorot', () => {
+  const MAX = 1_000_000_000;
+  const legacyDoc = { uid: OWNER, date: '2025-03-01', type: 'expense', amount: 12.5, category: 'c', merchant: 'm' };
+  const modernDoc = { ...legacyDoc, amountAgorot: 1250 };
+  const col = (db) => db.collection('transactions');
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await db.collection('transactions').doc('legacy').set(legacyDoc);
+      await db.collection('transactions').doc('modern').set(modernDoc);
+    });
+  });
+
+  describe('create', () => {
+    it('allows a positive integer', async () =>
+      assertSucceeds(col(verified(OWNER)).doc('c1').set(modernDoc)));
+    it('allows the upper bound', async () =>
+      assertSucceeds(col(verified(OWNER)).doc('c2').set({ ...modernDoc, amountAgorot: MAX })));
+    it('allows the smallest amount (1 agora)', async () =>
+      assertSucceeds(col(verified(OWNER)).doc('c3').set({ ...modernDoc, amountAgorot: 1 })));
+    it('denies a document without amountAgorot (legacy payload, e.g. a stale client)', async () =>
+      assertFails(col(verified(OWNER)).doc('c4').set(legacyDoc)));
+    it('denies above the upper bound', async () =>
+      assertFails(col(verified(OWNER)).doc('c5').set({ ...modernDoc, amountAgorot: MAX + 1 })));
+    each(
+      [['zero', 0], ['negative', -1], ['a float', 12.5], ['a string', '1250'], ['null', null], ['a boolean', true], ['NaN', NaN], ['Infinity', Infinity]],
+      (name) => `denies ${name}`,
+      (_name, value) => assertFails(col(verified(OWNER)).doc('bad').set({ ...modernDoc, amountAgorot: value }))
+    );
+  });
+
+  describe('legacy documents (no amountAgorot) keep working', () => {
+    it('can be read', async () => assertSucceeds(col(verified(OWNER)).doc('legacy').get()));
+    it('can be deleted', async () => assertSucceeds(col(verified(OWNER)).doc('legacy').delete()));
+    it('can be updated with a partial change (missing-category dialog)', async () =>
+      assertSucceeds(col(verified(OWNER)).doc('legacy').update({ category: 'z' })));
+    it('can be overwritten by a legacy-style payload (stale client edit)', async () =>
+      assertSucceeds(col(verified(OWNER)).doc('legacy').set({ ...legacyDoc, amount: 20 })));
+    it('can be updated by a new client that adds a valid amountAgorot', async () =>
+      assertSucceeds(col(verified(OWNER)).doc('legacy').set({ ...legacyDoc, amount: 20, amountAgorot: 2000 })));
+    each(
+      [['a float', 12.5], ['zero', 0], ['negative', -5], ['above the bound', MAX + 1], ['a string', '10']],
+      (name) => `cannot be given an invalid amountAgorot (${name})`,
+      (_name, value) => assertFails(col(verified(OWNER)).doc('legacy').update({ amountAgorot: value }))
+    );
+  });
+
+  describe('documents that already have amountAgorot', () => {
+    it('can be updated with a partial change', async () =>
+      assertSucceeds(col(verified(OWNER)).doc('modern').update({ category: 'z' })));
+    it('can be given another valid amount', async () =>
+      assertSucceeds(col(verified(OWNER)).doc('modern').update({ amountAgorot: 99 })));
+    it('cannot lose the field', async () =>
+      assertFails(col(verified(OWNER)).doc('modern').set(legacyDoc)));
+    it('cannot lose the field via update with a deleted value', async () => {
+      const { FieldValue } = require('firebase/compat/app').default.firestore;
+      await assertFails(col(verified(OWNER)).doc('modern').update({ amountAgorot: FieldValue.delete() }));
+    });
+    each(
+      [['negative', -5], ['above the bound', MAX + 1], ['a float', 1.5], ['zero', 0]],
+      (name) => `cannot be given an invalid amountAgorot (${name})`,
+      (_name, value) => assertFails(col(verified(OWNER)).doc('modern').update({ amountAgorot: value }))
+    );
+  });
+
+  describe('other collections are unaffected', () => {
+    it('categories and merchantCategories need no amountAgorot', async () => {
+      const db = verified(OWNER);
+      await assertSucceeds(db.collection('categories').doc('cx').set({ uid: OWNER, name: 'n' }));
+      await assertSucceeds(db.collection('merchantCategories').doc(`${OWNER}_zz`).set({ uid: OWNER, category: 'c' }));
+    });
+  });
+
+  describe('ownership still applies on top of the amount rule', () => {
+    it('another user cannot update a document even with a valid amount', async () =>
+      assertFails(col(verified(OTHER)).doc('modern').update({ amountAgorot: 99 })));
+    it('an unverified user cannot create with a valid amount', async () =>
+      assertFails(col(unverified(OWNER)).doc('c9').set(modernDoc)));
   });
 });
 
