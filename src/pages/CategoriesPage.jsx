@@ -1,30 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { db } from '../firebase';
-import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, query, where, deleteDoc, doc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { getDocs } from 'firebase/firestore';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { cleanCategoryName, hasCategory } from '../lib/categories';
+import { useData } from '../contexts/DataContext';
 
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState([]);
+  // Live list from the shared provider (documents with their ids).
+  const { categoryDocs: categories } = useData();
   const [newCategory, setNewCategory] = useState('');
   const [pendingDelete, setPendingDelete] = useState(null);
   // Inline Hebrew message for a refused or failed add/delete (replaces alert()).
   const [error, setError] = useState('');
   const user = getAuth().currentUser;
-
-  useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, 'categories'), where('uid', '==', user.uid));
-    const unsub = onSnapshot(q, (snap) => {
-      setCategories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-    return () => unsub();
-  }, [user]);
 
   const addCategory = async () => {
     const name = cleanCategoryName(newCategory);

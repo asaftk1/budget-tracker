@@ -1,31 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
-import { db } from '../firebase';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
-import { getAuth } from 'firebase/auth';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
 import Suggestions from '../components/Suggestions';
 import dayjs from 'dayjs';
+import { useData } from '../contexts/DataContext';
 import { getAgorot, fromAgorot, formatMoney } from '../lib/money';
 import { summarizeTransactions, monthKeyOf } from '../lib/summaries';
 import { TYPE, CHART_COLORS } from '../constants';
 
 export default function Dashboard() {
-    const [transactions, setTransactions] = useState([]);
-
-    useEffect(() => {
-        const auth = getAuth();
-        const user = auth.currentUser;
-        if (!user) return;
-
-        const q = query(collection(db, 'transactions'), where('uid', '==', user.uid));
-        const unsub = onSnapshot(q, (snapshot) => {
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setTransactions(data);
-        });
-
-        return () => unsub();
-    }, []);
+    const { transactions } = useData();
 
     // One pass over the transactions for everything the page shows. Money stays in integer
     // agorot until it is displayed or handed to a chart.

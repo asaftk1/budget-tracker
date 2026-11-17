@@ -2,6 +2,7 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import * as fs from 'firebase/firestore';
 import * as authMod from 'firebase/auth';
+import { DataProvider } from '../contexts/DataContext';
 import useTransactions, {
   loadMerchantCategoryMap,
   saveMerchantCategory,
@@ -9,6 +10,8 @@ import useTransactions, {
 } from './useTransactions';
 
 jest.mock('../firebase', () => ({ db: { __db: true } }));
+let mockAuthUser;
+jest.mock('../contexts/AuthContext', () => ({ useAuth: () => ({ user: mockAuthUser }) }));
 jest.mock('firebase/auth', () => ({ getAuth: jest.fn(), onAuthStateChanged: jest.fn() }));
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(),
@@ -81,11 +84,13 @@ async function renderHook() {
   let root;
   await act(async () => {
     root = createRoot(container);
-    root.render(<Probe />);
+    mockAuthUser = currentUser ? { uid: currentUser.uid } : null;
+    root.render(<DataProvider><Probe /></DataProvider>);
   });
   return { result, unmount: () => act(async () => root.unmount()) };
 }
 
+// Listener lifetime (open once, cancel on sign-out and unmount) is tested in DataContext.test.js.
 describe('subscriptions', () => {
   test('subscribes to the signed-in user\'s categories and transactions only', async () => {
     seed.transactions = [{ id: 't1', uid: 'u1', amount: 5 }];
@@ -96,8 +101,8 @@ describe('subscriptions', () => {
     expect(result.current.categories).toEqual(['food']);
     const queries = fs.query.mock.calls.map(([c, w]) => [c.__col, w.__where]);
     expect(queries).toEqual([
-      ['categories', ['uid', '==', 'u1']],
       ['transactions', ['uid', '==', 'u1']],
+      ['categories', ['uid', '==', 'u1']],
     ]);
   });
 
@@ -107,35 +112,6 @@ describe('subscriptions', () => {
     expect(result.current.transactions).toEqual([]);
     expect(result.current.categories).toEqual([]);
     expect(fs.onSnapshot).not.toHaveBeenCalled();
-  });
-
-  test('unmount cancels the auth listeners and both snapshot listeners', async () => {
-    const { unmount } = await renderHook();
-    expect(unsubs).toEqual([]);
-    await unmount();
-    expect([...unsubs].sort()).toEqual(['auth', 'auth', 'categories', 'transactions']);
-  });
-
-  test('sign-out cancels both snapshot listeners and clears the data', async () => {
-    seed.transactions = [{ id: 't1', uid: 'u1', amount: 5 }];
-    seed.categories = [{ id: 'c1', uid: 'u1', name: 'food' }];
-    const callbacks = [];
-    authMod.onAuthStateChanged.mockImplementation((auth, cb) => {
-      callbacks.push(cb);
-      cb(currentUser);
-      return () => unsubs.push('auth');
-    });
-    const { result, unmount } = await renderHook();
-    expect(result.current.transactions).toHaveLength(1);
-
-    await act(async () => callbacks.forEach((cb) => cb(null)));
-    expect([...unsubs].sort()).toEqual(['categories', 'transactions']);
-    expect(result.current.transactions).toEqual([]);
-    expect(result.current.categories).toEqual([]);
-
-    // Unmounting afterwards must not cancel the same listeners a second time.
-    await unmount();
-    expect([...unsubs].sort()).toEqual(['auth', 'auth', 'categories', 'transactions']);
   });
 });
 

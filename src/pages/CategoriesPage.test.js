@@ -2,10 +2,12 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import CategoriesPage from './CategoriesPage';
 import * as fs from 'firebase/firestore';
+import { DataProvider } from '../contexts/DataContext';
 
 let existing;
 
 jest.mock('../firebase', () => ({ db: {} }));
+jest.mock('../contexts/AuthContext', () => ({ useAuth: () => ({ user: { uid: 'u1' } }) }));
 // The page uses currentUser as an effect dependency, so it must be the same object on every call
 // (the real SDK guarantees that).
 jest.mock('firebase/auth', () => {
@@ -43,7 +45,7 @@ beforeEach(() => {
 async function renderPage() {
   const container = document.createElement('div');
   document.body.appendChild(container);
-  await act(async () => { createRoot(container).render(<CategoriesPage />); });
+  await act(async () => { createRoot(container).render(<DataProvider><CategoriesPage /></DataProvider>); });
 }
 const typeAndAdd = async (value) => {
   const input = document.body.querySelector('input');

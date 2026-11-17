@@ -1,8 +1,6 @@
 // src/pages/AnalyticsPage.jsx
-import { useEffect, useState, useMemo } from 'react';
-import { db } from '../firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { useState, useMemo } from 'react';
+import { useData } from '../contexts/DataContext';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
 import { Input } from '../components/ui/input';
@@ -11,21 +9,10 @@ import { summarizeTransactions } from '../lib/summaries';
 import { CHART_COLORS } from '../constants';
 
 export default function AnalyticsPage() {
-  const [transactions, setTransactions] = useState([]);
+  const { transactions } = useData();
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const COLORS = CHART_COLORS.palette;
-
-  useEffect(() => {
-    const user = getAuth().currentUser;
-    if (!user) return;
-    const q = query(collection(db, 'transactions'), where('uid', '==', user.uid));
-    const unsub = onSnapshot(q, (snap) => {
-      const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setTransactions(data);
-    });
-    return () => unsub();
-  }, []);
 
   const filtered = useMemo(() => {
     return transactions.filter(tx => {

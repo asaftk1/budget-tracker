@@ -1,10 +1,8 @@
-// Firestore access for the transactions page: live subscriptions plus the write operations.
+// Firestore access for the transactions page: the write operations (live data comes from DataContext).
 // UI concerns (dialogs, alerts, form state) stay in the component.
-import { useEffect, useState } from 'react';
 import { db } from '../firebase';
 import {
   collection,
-  onSnapshot,
   addDoc,
   deleteDoc,
   doc,
@@ -15,7 +13,8 @@ import {
   query,
   where,
 } from 'firebase/firestore';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
+import { useData } from '../contexts/DataContext';
 import { normalizeMerchantName } from '../lib/categorize';
 import { chunk, MAX_BATCH_SIZE } from '../lib/transactionId';
 import { toAgorot, fromAgorot } from '../lib/money';
@@ -84,64 +83,8 @@ export const commitTransactions = async (pending) => {
 };
 
 export default function useTransactions() {
-  const [transactions, setTransactions] = useState([]);
-  const [categories, setCategories] = useState([]);
-
-  useEffect(() => {
-    const auth = getAuth();
-    // The snapshot listener lives as long as the signed-in user. It is cancelled on sign-out, when
-    // the user changes, and on unmount (the return value of an auth callback is ignored).
-    let stopSnapshot = null;
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (stopSnapshot) {
-        stopSnapshot();
-        stopSnapshot = null;
-      }
-      if (!user) {
-        setCategories([]);
-        return;
-      }
-
-      const q = query(collection(db, 'categories'), where('uid', '==', user.uid));
-      stopSnapshot = onSnapshot(q, (snap) => {
-        const data = snap.docs.map(doc => doc.data().name);
-        setCategories(data);
-      });
-    });
-
-    return () => {
-      unsubscribe();
-      if (stopSnapshot) stopSnapshot();
-    };
-  }, []);
-
-  useEffect(() => {
-    const auth = getAuth();
-    // The snapshot listener lives as long as the signed-in user. It is cancelled on sign-out, when
-    // the user changes, and on unmount (the return value of an auth callback is ignored).
-    let stopSnapshot = null;
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (stopSnapshot) {
-        stopSnapshot();
-        stopSnapshot = null;
-      }
-      if (!user) {
-        setTransactions([]);
-        return;
-      }
-
-      const q = query(collection(db, 'transactions'), where('uid', '==', user.uid));
-      stopSnapshot = onSnapshot(q, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setTransactions(data);
-      });
-    });
-
-    return () => {
-      unsubscribe();
-      if (stopSnapshot) stopSnapshot();
-    };
-  }, []);
+  // Live data comes from the shared provider; this hook adds the write operations.
+  const { transactions, categories } = useData();
 
   // Create or update a transaction from the add/edit form. Adds the category to the user's
   // category list if it is new. Returns false when nobody is signed in (nothing is written).

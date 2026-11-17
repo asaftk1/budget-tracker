@@ -3,11 +3,13 @@ import { createRoot } from 'react-dom/client';
 import Dashboard from './Dashboard';
 import AnalyticsPage from './AnalyticsPage';
 import { TYPE } from '../constants';
+import { DataProvider } from '../contexts/DataContext';
 
 let mockDocs = [];
 
 jest.mock('../firebase', () => ({ db: {} }));
 jest.mock('firebase/auth', () => ({ getAuth: () => ({ currentUser: { uid: 'u1' } }) }));
+jest.mock('../contexts/AuthContext', () => ({ useAuth: () => ({ user: { uid: 'u1' } }) }));
 jest.mock('firebase/firestore', () => ({
   collection: () => ({}),
   where: () => ({}),
@@ -31,7 +33,7 @@ async function render(Page) {
   global.IS_REACT_ACT_ENVIRONMENT = true;
   const container = document.createElement('div');
   document.body.appendChild(container);
-  await act(async () => { createRoot(container).render(<Page />); });
+  await act(async () => { createRoot(container).render(<DataProvider><Page /></DataProvider>); });
   return plain(container.textContent);
 }
 
