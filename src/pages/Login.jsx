@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { authErrorMessage } from "../lib/authErrors";
+import { Wallet } from "lucide-react";
 
 export default function Login() {
   const { user, signInWithGoogle, signInWithEmail, signUpWithEmail, resendVerification } = useAuth();
@@ -64,14 +65,20 @@ export default function Login() {
   };
 
   return (
-    <div dir="rtl" className="flex items-center justify-center h-screen bg-gray-100">
-      <div className="bg-white p-8 rounded shadow-md text-center w-80">
-        <h2 className="text-2xl font-bold mb-6 text-green-600">
-          {mode === "login" ? "התחברות למערכת" : "הרשמה למערכת"}
-        </h2>
+    <div className="flex min-h-screen items-center justify-center bg-canvas p-4">
+      <div className="w-full max-w-sm rounded-card border bg-card p-6 shadow-card sm:p-8">
+        <div className="mb-6 flex flex-col items-center gap-3 text-center">
+          <span className="flex size-12 items-center justify-center rounded-card bg-primary text-white" aria-hidden="true">
+            <Wallet size={24} />
+          </span>
+          <p className="text-sm font-medium text-muted-foreground">מעקב תקציב</p>
+          <h1 className="text-2xl font-bold leading-tight text-foreground">
+            {mode === "login" ? "התחברות למערכת" : "הרשמה למערכת"}
+          </h1>
+        </div>
 
         {/* A real form, so Enter submits. noValidate keeps the browser from adding its own popups. */}
-        <form onSubmit={handleSubmit} noValidate>
+        <form onSubmit={handleSubmit} noValidate className="space-y-3">
           <Input
             type="email"
             name="email"
@@ -91,30 +98,38 @@ export default function Login() {
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          {info && <p role="status" className="text-green-700 text-sm mt-2">{info}</p>}
-          {error && <p role="alert" className="text-red-500 text-sm">{error}</p>}
+          {info && <p role="status" className="text-sm text-primary">{info}</p>}
+          {error && <p role="alert" className="text-sm text-danger">{error}</p>}
           {needsVerification && (
-            <button type="button" className="text-sm text-blue-600 underline" onClick={handleResend}>
+            <button
+              type="button"
+              className="rounded text-sm font-medium text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={handleResend}
+            >
               שלח/י שוב מייל אימות
             </button>
           )}
 
-          <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-3">
+          <Button type="submit" size="lg" className="w-full">
             {mode === "login" ? "התחבר" : "הירשם"}
           </Button>
 
           <button
             type="button"
-            className="text-sm text-blue-600 mt-2"
+            className="block w-full rounded py-1 text-center text-sm font-medium text-primary hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => setMode(mode === "login" ? "signup" : "login")}
           >
             {mode === "login" ? "אין לך חשבון? הירשם" : "כבר יש לך חשבון? התחבר"}
           </button>
         </form>
 
-        <hr className="my-4" />
+        <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground" role="separator">
+          <span className="h-px flex-1 bg-border" />
+          <span>או</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
 
-        <Button type="button" onClick={handleGoogle} className="w-full bg-green-600 hover:bg-green-700 text-white">
+        <Button type="button" variant="outline" size="lg" onClick={handleGoogle} className="w-full">
           התחבר באמצעות Google
         </Button>
       </div>

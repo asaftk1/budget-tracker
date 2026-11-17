@@ -27,6 +27,7 @@ module.exports = {
         card: token("card"),
         "card-foreground": token("card-foreground"),
         foreground: token("foreground"),
+        border: token("border"), // hairlines: border-border, bg-border (dividers)
         muted: {
           DEFAULT: token("muted"),
           foreground: token("muted-foreground"),
