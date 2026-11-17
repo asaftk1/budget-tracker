@@ -4,12 +4,13 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pi
 import Suggestions from '../components/Suggestions';
 import dayjs from 'dayjs';
 import { useData } from '../contexts/DataContext';
+import PageState from '../components/PageState';
 import { getAgorot, fromAgorot, formatMoney } from '../lib/money';
 import { summarizeTransactions, monthKeyOf } from '../lib/summaries';
 import { TYPE, CHART_COLORS } from '../constants';
 
 export default function Dashboard() {
-    const { transactions } = useData();
+    const { transactions, loading, error } = useData();
 
     // One pass over the transactions for everything the page shows. Money stays in integer
     // agorot until it is displayed or handed to a chart.
@@ -54,6 +55,14 @@ export default function Dashboard() {
     return (
         <div dir="rtl" className="min-h-screen bg-gray-50 p-6">
             <h1 className="text-2xl font-bold mb-6">מעקב הוצאות והכנסות</h1>
+
+            <PageState
+                loading={loading}
+                error={error}
+                hasData={transactions.length > 0}
+                isEmpty={transactions.length === 0}
+                emptyMessage="אין עדיין פעולות. הוסף/י פעולה או ייבא/י קובץ אשראי בעמוד הפעולות."
+            >
 
             {/* Balance Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -181,6 +190,7 @@ export default function Dashboard() {
             <div className="mb-6">
                 <Suggestions transactions={transactions} />
             </div>
+            </PageState>
         </div>
     );
 }

@@ -8,11 +8,12 @@ import { getDocs } from 'firebase/firestore';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { cleanCategoryName, hasCategory } from '../lib/categories';
 import { useData } from '../contexts/DataContext';
+import PageState from '../components/PageState';
 
 
 export default function CategoriesPage() {
   // Live list from the shared provider (documents with their ids).
-  const { categoryDocs: categories } = useData();
+  const { categoryDocs: categories, loading, error: loadError } = useData();
   const [newCategory, setNewCategory] = useState('');
   const [pendingDelete, setPendingDelete] = useState(null);
   // Inline Hebrew message for a refused or failed add/delete (replaces alert()).
@@ -58,6 +59,13 @@ export default function CategoriesPage() {
   return (
     <div dir = "rtl" className="p-4">
       <h2 className="text-xl font-bold mb-4">📁 הקטגוריות שלי</h2>
+      <PageState
+        loading={loading}
+        error={loadError}
+        hasData={categories.length > 0}
+        isEmpty={categories.length === 0}
+        emptyMessage="אין עדיין קטגוריות. הוסף/י את הראשונה למטה."
+      >
       <ul className="mb-4 space-y-2">
         {categories.map(cat => (
           <li key={cat.id} className="flex justify-between items-center bg-gray-50 px-3 py-2 rounded shadow-sm">
@@ -72,6 +80,7 @@ export default function CategoriesPage() {
           </li>
         ))}
       </ul>
+      </PageState>
       <div className="flex gap-2">
         <Input
           value={newCategory}

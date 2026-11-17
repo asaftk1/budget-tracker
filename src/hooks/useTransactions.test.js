@@ -305,4 +305,29 @@ describe('commitTransactions', () => {
     expect(batches).toHaveLength(3);
     expect(errorSpy).toHaveBeenCalledTimes(1);
   });
+
+  test('onChunkError is optional and receives the row count of each failed batch', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    fs.writeBatch.mockImplementation(() => {
+      const batch = {
+        ops: [],
+        set: (d, data) => batch.ops.push([d.__doc, data]),
+        commit: jest.fn().mockRejectedValue(new Error('boom')),
+      };
+      return batch;
+    });
+    const failures = [];
+    // The return value is unchanged: only rows that were written count.
+    await expect(commitTransactions(items(1200), (f) => failures.push(f))).resolves.toBe(0);
+    expect(failures.map((f) => f.rows)).toEqual([500, 500, 200]);
+    expect(failures[0].error).toBeInstanceOf(Error);
+    // Without the callback it still works.
+    await expect(commitTransactions(items(3))).resolves.toBe(0);
+  });
+
+  test('onChunkError is not called when every batch succeeds', async () => {
+    const onChunkError = jest.fn();
+    await expect(commitTransactions(items(600), onChunkError)).resolves.toBe(600);
+    expect(onChunkError).not.toHaveBeenCalled();
+  });
 });

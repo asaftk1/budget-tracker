@@ -66,8 +66,9 @@ export const saveMerchantCategory = async (uid, merchant, category, mapRef) => {
 };
 
 // Write imported transactions in batches. pending: [{ id, data }]. Returns how many were written.
-// A failed batch is logged and skipped; the rest are still attempted.
-export const commitTransactions = async (pending) => {
+// A failed batch is logged and skipped; the rest are still attempted. The optional onChunkError
+// receives { rows, error } for each failed batch so the caller can report it.
+export const commitTransactions = async (pending, onChunkError) => {
   let total = 0;
   for (const group of chunk(pending, MAX_BATCH_SIZE)) {
     const batch = writeBatch(db);
@@ -77,6 +78,7 @@ export const commitTransactions = async (pending) => {
       total += group.length;
     } catch (error) {
       console.error('Firestore batch write failed:', error);
+      if (onChunkError) onChunkError({ rows: group.length, error });
     }
   }
   return total;
@@ -84,7 +86,7 @@ export const commitTransactions = async (pending) => {
 
 export default function useTransactions() {
   // Live data comes from the shared provider; this hook adds the write operations.
-  const { transactions, categories } = useData();
+  const { transactions, categories, loading, error } = useData();
 
   // Create or update a transaction from the add/edit form. Adds the category to the user's
   // category list if it is new. Returns false when nobody is signed in (nothing is written).
@@ -145,6 +147,8 @@ export default function useTransactions() {
   return {
     transactions,
     categories,
+    loading,
+    error,
     saveTransaction,
     deleteTransaction,
     updateTransactionCategory,

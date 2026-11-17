@@ -1,7 +1,10 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import TransactionsPage from './TransactionsPage';
-import useTransactions from '../hooks/useTransactions';
+import useTransactions, { commitTransactions } from '../hooks/useTransactions';
+import { parseMaxSheet } from '../lib/statementParsers';
+import { getAuth } from 'firebase/auth';
+import * as XLSX from 'xlsx';
 import { groupTransactionsByDate } from '../lib/summaries';
 
 // A spy around the real function. (CRA resets mock implementations before each test, so the real
@@ -10,6 +13,11 @@ jest.mock('../lib/summaries', () => ({
   ...jest.requireActual('../lib/summaries'),
   groupTransactionsByDate: jest.fn(),
 }));
+jest.mock('xlsx', () => ({
+  read: jest.fn(() => ({ SheetNames: ['s1'], Sheets: { s1: {} } })),
+  utils: { sheet_to_json: jest.fn(() => [['h'], ['row']]) },
+}));
+jest.mock('../lib/statementParsers', () => ({ parseIsracardSheet: jest.fn(), parseMaxSheet: jest.fn() }));
 jest.mock('firebase/auth', () => ({ getAuth: jest.fn(() => ({ currentUser: { uid: 'u1' } })) }));
 jest.mock('../hooks/useTransactions', () => ({
   __esModule: true,
@@ -215,6 +223,135 @@ describe('search', () => {
     expect(status()).toBeNull();
     expect(merchants()).toEqual(['Shufersal']);
     expect(document.body.querySelector('#selected-month').disabled).toBe(false);
+  });
+});
+
+describe('loading, error and empty states', () => {
+  const render = async (data) => {
+    Object.assign(hook, data);
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    await act(async () => { createRoot(container).render(<TransactionsPage />); });
+  };
+  const status = () => [...document.body.querySelectorAll('[role=status]')].map((n) => n.textContent).join('|');
+  const alerts = () => [...document.body.querySelectorAll('[role=alert]')].map((n) => n.textContent).join('|');
+  const thisMonth = new Date().toISOString().slice(0, 10);
+  const row = { id: 't1', date: thisMonth, type: 'expense', category: 'food', merchant: 'Shufersal', amountAgorot: 100 };
+
+  test('loading shows a Hebrew status, and the add and import buttons stay available', async () => {
+    await render({ loading: true });
+    expect(status()).toContain('טוען');
+    expect(buttonWith('➕ הוסף')).toBeTruthy();
+    expect(buttonWith('📂')).toBeTruthy();
+  });
+
+  test('no transactions at all shows the empty message', async () => {
+    await render({});
+    expect(status()).toContain('אין עדיין פעולות');
+    expect(document.body.textContent).not.toContain('טוען');
+  });
+
+  test('transactions exist but none in the selected month', async () => {
+    await render({ transactions: [{ ...row, date: '2020-01-05' }] });
+    expect(document.body.textContent).toContain('אין פעולות בחודש הזה');
+    expect(status()).not.toContain('אין עדיין פעולות');
+  });
+
+  test('an error with no data shows the error and nothing else in the table area', async () => {
+    await render({ error: 'טעינת הנתונים נכשלה.' });
+    expect(alerts()).toContain('נכשלה');
+    expect(document.body.textContent).not.toContain('טוען');
+    expect(document.body.textContent).not.toContain('אין עדיין פעולות');
+  });
+
+  test('an error after data loaded shows the error and keeps the rows', async () => {
+    await render({ transactions: [row], error: 'טעינת הנתונים נכשלה.' });
+    expect(alerts()).toContain('נכשלה');
+    expect(document.body.textContent).toContain('Shufersal');
+  });
+});
+
+describe('import result', () => {
+  const parsedRows = (n) => Array.from({ length: n }, (_, i) => ({
+    rowIndex: i,
+    transaction: { date: '2025-03-05', merchant: `m${i}`, amount: 1, source: 'max' },
+  }));
+  const alerts = () => [...document.body.querySelectorAll('[role=alert]')].map((n) => n.textContent).join('|');
+  const statuses = () => [...document.body.querySelectorAll('[role=status]')].map((n) => n.textContent).join('|');
+
+  async function runImport({ parsed, commit }) {
+    parseMaxSheet.mockImplementation((json, { onWarn }) => {
+      parsed.warnings?.forEach((code) => onWarn(code, {}));
+      return parsed.rows;
+    });
+    commitTransactions.mockImplementation(commit);
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    await act(async () => { createRoot(container).render(<TransactionsPage />); });
+    await click(buttonWith('📂'));
+    await click(buttonWith('Max'));
+    const input = document.body.querySelector('input[type=file]');
+    const file = new File(['x'], 'max.xlsx');
+    Object.defineProperty(input, 'files', { value: [file] });
+    await act(async () => { input.dispatchEvent(new Event('change', { bubbles: true })); });
+    await click(buttonWith('📥'));
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+  }
+
+  // CRA resets mock implementations before every test, so they are set up here.
+  beforeEach(() => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    getAuth.mockReturnValue({ currentUser: { uid: 'u1' } });
+    XLSX.read.mockReturnValue({ SheetNames: ['s1'], Sheets: { s1: {} } });
+    XLSX.utils.sheet_to_json.mockReturnValue([['h'], ['row']]);
+  });
+
+  test('a clean import reports the rows written and keeps the dialog open', async () => {
+    await runImport({ parsed: { rows: parsedRows(3) }, commit: async (pending) => pending.length });
+    expect(statuses()).toContain('3 פעולות יובאו');
+    expect(buttonWith('סגור')).toBeTruthy();
+    expect(alerts()).toBe('');
+  });
+
+  test('skipped rows are counted from the parser warnings', async () => {
+    await runImport({
+      parsed: { rows: parsedRows(2), warnings: ['invalid-amount', 'invalid-amount', 'max-no-posting-date'] },
+      commit: async (pending) => pending.length,
+    });
+    expect(statuses()).toContain('2 שורות דולגו בגלל סכום לא תקין');
+  });
+
+  test('a partial failure reports the failed rows and that re-importing is safe', async () => {
+    await runImport({
+      parsed: { rows: parsedRows(7) },
+      commit: async (pending, onChunkError) => { onChunkError({ rows: 3 }); return pending.length - 3; },
+    });
+    expect(alerts()).toContain('4 פעולות יובאו');
+    expect(alerts()).toContain('3 פעולות לא נכתבו');
+    expect(alerts()).toContain('המזהים קבועים');
+  });
+
+  test('when nothing is written the import is reported as failed', async () => {
+    await runImport({
+      parsed: { rows: parsedRows(5) },
+      commit: async (pending, onChunkError) => { onChunkError({ rows: 5 }); return 0; },
+    });
+    expect(alerts()).toContain('לא נכתבה אף פעולה');
+  });
+
+  test('a sheet with no data rows is counted as ignored', async () => {
+    XLSX.utils.sheet_to_json.mockReturnValue([['only a header']]);
+    await runImport({ parsed: { rows: [] }, commit: async () => 0 });
+    expect(statuses()).toContain('לא נמצאו פעולות לייבוא');
+    expect(statuses()).toContain('1 גיליון ריק דולג');
+  });
+
+  test('closing the result and reopening the dialog starts fresh', async () => {
+    await runImport({ parsed: { rows: parsedRows(1) }, commit: async (pending) => pending.length });
+    await click(buttonWith('סגור'));
+    await click(buttonWith('📂'));
+    expect(statuses()).not.toContain('יובא');
+    expect(buttonWith('Max')).toBeTruthy();
   });
 });
 

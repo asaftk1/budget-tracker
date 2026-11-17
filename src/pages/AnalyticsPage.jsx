@@ -1,6 +1,7 @@
 // src/pages/AnalyticsPage.jsx
 import { useState, useMemo } from 'react';
 import { useData } from '../contexts/DataContext';
+import PageState from '../components/PageState';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
 import { Input } from '../components/ui/input';
@@ -9,7 +10,7 @@ import { summarizeTransactions } from '../lib/summaries';
 import { CHART_COLORS } from '../constants';
 
 export default function AnalyticsPage() {
-  const { transactions } = useData();
+  const { transactions, loading, error } = useData();
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const COLORS = CHART_COLORS.palette;
@@ -48,6 +49,13 @@ export default function AnalyticsPage() {
   return (
     <div dir="rtl" className="p-6 bg-gray-50 min-h-screen">
       <h2 className="text-2xl font-bold mb-4">📈 ניתוח נתונים</h2>
+      <PageState
+        loading={loading}
+        error={error}
+        hasData={transactions.length > 0}
+        isEmpty={transactions.length === 0}
+        emptyMessage="אין נתונים להצגה עדיין. הוסף/י פעולות כדי לראות ניתוח."
+      >
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="flex-1">
           <label htmlFor="analytics-from" className="block mb-1 font-medium">מתאריך:</label>
@@ -134,6 +142,7 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
       </div>
+      </PageState>
     </div>
   );
 }

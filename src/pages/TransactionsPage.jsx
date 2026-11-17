@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import PageState from '../components/PageState';
 import TransactionRow from '../components/TransactionRow';
 import TransactionDialog from '../components/TransactionDialog';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -19,6 +20,7 @@ import { groupTransactionsByDate, groupTransactionsByDay } from '../lib/summarie
 import { EMPTY_FILTERS, filterTransactions, hasActiveFilter } from '../lib/filterTransactions';
 import { SOURCE } from '../constants';
 import { devLog } from '../lib/devLog';
+import { buildImportReport } from '../lib/importReport';
 import { amountError, formatMoney, getAgorot, fromAgorot, MAX_AMOUNT_AGOROT } from '../lib/money';
 
 // Form messages for amountError() codes.
@@ -34,6 +36,8 @@ export default function TransactionsPage() {
   const {
     transactions,
     categories,
+    loading,
+    error: loadError,
     saveTransaction,
     deleteTransaction,
     updateTransactionCategory,
@@ -48,6 +52,8 @@ export default function TransactionsPage() {
   // Search filters (see lib/filterTransactions). Separate from formData, which belongs to the add form.
   const [search, setSearch] = useState(EMPTY_FILTERS);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  // Outcome of the last import, shown in the import dialog: { tone, lines } or null.
+  const [importResult, setImportResult] = useState(null);
   const [cardType, setCardType] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [editTransaction, setEditTransaction] = useState(null);
@@ -94,6 +100,11 @@ export default function TransactionsPage() {
     }
   };
 
+  const handleImportDialogOpenChange = (open) => {
+    setImportDialogOpen(open);
+    if (open) setImportResult(null);
+  };
+
   const handleFileSelection = (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -120,6 +131,14 @@ export default function TransactionsPage() {
       const workbook = XLSX.read(data, { type: 'binary' });
 
       let total = 0;
+      // Counts for the result message. Only the parser's own 'invalid-amount' warning means a skipped row.
+      let invalidAmount = 0;
+      let emptySheets = 0;
+      const failedChunks = { count: 0, rows: 0 };
+      const onWarn = (code, detail) => {
+        if (code === 'invalid-amount') invalidAmount += 1;
+        warnImport(code, detail);
+      };
       // Transactions to write, collected across all sheets: { id, data }.
       const pending = [];
       const merchantCategoryMap = await loadMerchantCategoryMap(user.uid);
@@ -128,13 +147,16 @@ export default function TransactionsPage() {
         const worksheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-        if (json.length < 2) continue;
+        if (json.length < 2) {
+          emptySheets += 1;
+          continue;
+        }
 
         let parsed = [];
         if (cardType === SOURCE.ISRACARD) {
-          parsed = parseIsracardSheet(json, { merchantCategoryMap, onWarn: warnImport });
+          parsed = parseIsracardSheet(json, { merchantCategoryMap, onWarn });
         } else if (cardType === SOURCE.MAX) {
-          parsed = parseMaxSheet(json, { onWarn: warnImport });
+          parsed = parseMaxSheet(json, { onWarn });
         }
 
         for (const { rowIndex, transaction } of parsed) {
@@ -155,12 +177,23 @@ export default function TransactionsPage() {
 
       // Deterministic ids: re-importing the same file overwrites the same documents.
       // Every document carries uid === the signed-in user, as firestore.rules requires.
-      total = await commitTransactions(pending);
+      total = await commitTransactions(pending, ({ rows }) => {
+        failedChunks.count += 1;
+        failedChunks.rows += rows;
+      });
 
       devLog(`✔️ הסתיים ייבוא: נוספו ${total} פעולות`);
       setSelectedFile(null);
       setCardType('');
-      setImportDialogOpen(false);
+      // The dialog stays open to show what happened.
+      setImportResult(buildImportReport({
+        imported: total,
+        attempted: pending.length,
+        failedRows: failedChunks.rows,
+        failedChunks: failedChunks.count,
+        invalidAmount,
+        emptySheets,
+      }));
     };
 
     reader.readAsBinaryString(selectedFile);
@@ -323,7 +356,7 @@ export default function TransactionsPage() {
             onSave={handleSave}
           />
 
-          <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+          <Dialog open={importDialogOpen} onOpenChange={handleImportDialogOpenChange}>
             <DialogTrigger asChild>
               <Button className="bg-blue-500 text-white">📂 ייבוא קובץ אשראי</Button>
             </DialogTrigger>
@@ -332,7 +365,15 @@ export default function TransactionsPage() {
                 <DialogTitle>ייבוא קובץ לפי סוג כרטיס</DialogTitle>
               </DialogHeader>
 
-              {!cardType ? (
+              {importResult ? (
+                <div className="flex flex-col gap-3 mt-4">
+                  <div role={importResult.tone === 'success' || importResult.tone === 'info' ? 'status' : 'alert'}
+                    className={importResult.tone === 'success' || importResult.tone === 'info' ? 'text-gray-800' : 'text-red-700'}>
+                    {importResult.lines.map((line) => <p key={line} className="mb-1">{line}</p>)}
+                  </div>
+                  <Button onClick={() => handleImportDialogOpenChange(false)}>סגור</Button>
+                </div>
+              ) : !cardType ? (
                 <div className="flex flex-col gap-3">
                   <Button onClick={() => setCardType(SOURCE.MAX)} className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold border border-gray-300">💳 Max</Button>
                   <Button onClick={() => setCardType(SOURCE.ISRACARD)} className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold border border-gray-300">💳 ישראכרט</Button>
@@ -371,8 +412,18 @@ export default function TransactionsPage() {
           />
         </div>
 
+        <PageState
+          loading={loading}
+          error={loadError}
+          hasData={transactions.length > 0}
+          isEmpty={transactions.length === 0}
+          emptyMessage="אין עדיין פעולות. הוסף/י פעולה או ייבא/י קובץ אשראי."
+        >
         {searchActive && Object.keys(groupedByDate).length === 0 && (
           <p className="text-gray-600">לא נמצאו תוצאות</p>
+        )}
+        {!searchActive && Object.keys(groupedByDate).length === 0 && (
+          <p className="text-gray-600">אין פעולות בחודש הזה</p>
         )}
 
         {Object.keys(groupedByDate).map(date => (
@@ -420,6 +471,7 @@ export default function TransactionsPage() {
             </div>
           </div>
         ))}
+        </PageState>
       </div>
 
       {pendingDeleteId && (
