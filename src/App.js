@@ -15,7 +15,7 @@ function RequireAuth({ children }) {
   const [user, setUser] = useState(undefined);
   useEffect(() => onAuthStateChanged(auth, setUser), []);
   if (user === undefined) return null;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user || !user.emailVerified) return <Navigate to="/login" replace />;
   return children;
 }
 
@@ -23,7 +23,7 @@ function PublicRoute({ children }) {
   const [user, setUser] = useState(undefined);
   useEffect(() => onAuthStateChanged(auth, setUser), []);
   if (user === undefined) return null;
-  if (user) return <Navigate to="/dashboard" replace />;
+  if (user && user.emailVerified) return <Navigate to="/dashboard" replace />;
   return children;
 }
 

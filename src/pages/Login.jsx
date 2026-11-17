@@ -5,13 +5,15 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 
 export default function Login() {
-  const { user, signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
+  const { user, signInWithGoogle, signInWithEmail, signUpWithEmail, resendVerification } = useAuth();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState("login"); // "login" | "signup"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+  const [needsVerification, setNeedsVerification] = useState(false);
 
   useEffect(() => {
     if (user && user.emailVerified) navigate("/dashboard");
@@ -20,14 +22,35 @@ export default function Login() {
   const handleSubmit = async () => {
     try {
       setError("");
+      setInfo("");
+      setNeedsVerification(false);
       if (mode === "signup") {
         await signUpWithEmail(email, password);
-        alert("Verification email sent. Please confirm before login.");
+        setMode("login");
+        setPassword("");
+        setInfo("נשלח אליך מייל אימות. אשר/י את הכתובת (בדוק/י גם בספאם) ואז התחבר/י.");
       } else {
         await signInWithEmail(email, password);
+        // Navigate explicitly: the user object is mutated by reload(), which does not trigger a re-render.
+        navigate("/dashboard");
       }
     } catch (err) {
-      setError("Invalid email, password, or unverified account");
+      if (err?.code === "auth/email-not-verified") {
+        setNeedsVerification(true);
+        setError("האימייל טרם אומת. אשר/י את הכתובת דרך המייל שנשלח אליך ואז התחבר/י שוב.");
+      } else {
+        setError("Invalid email, password, or unverified account");
+      }
+    }
+  };
+
+  const handleResend = async () => {
+    try {
+      setError("");
+      await resendVerification();
+      setInfo("מייל אימות נשלח שוב. בדוק/י את תיבת הדואר (גם בספאם).");
+    } catch (err) {
+      setError("שליחת מייל האימות נכשלה. נסה/י שוב בעוד מספר דקות.");
     }
   };
 
@@ -41,7 +64,13 @@ export default function Login() {
         <Input type="email" placeholder="אימייל" value={email} onChange={(e) => setEmail(e.target.value)} />
         <Input type="password" placeholder="סיסמה" value={password} onChange={(e) => setPassword(e.target.value)} />
 
+        {info && <p className="text-green-700 text-sm mt-2">{info}</p>}
         {error && <p className="text-red-500 text-sm">{error}</p>}
+        {needsVerification && (
+          <button className="text-sm text-blue-600 underline" onClick={handleResend}>
+            שלח/י שוב מייל אימות
+          </button>
+        )}
 
         <Button onClick={handleSubmit} className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-3">
           {mode === "login" ? "התחבר" : "הירשם"}

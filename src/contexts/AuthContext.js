@@ -40,9 +40,12 @@ export function AuthProvider({ children }) {
 
   const signUpWithEmail = async (email, password) => {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await sendEmailVerification(cred.user);
-    // do NOT signOut here; let the user stay signed-in but not verified
-    return cred.user;
+    try {
+      await sendEmailVerification(cred.user);
+    } finally {
+      // Never leave an unverified user signed in; they must verify, then log in.
+      await fbSignOut(auth);
+    }
   };
 
   const signInWithEmail = async (email, password) => {
