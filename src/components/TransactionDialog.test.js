@@ -55,6 +55,36 @@ describe('TransactionDialog', () => {
     expect(options).toEqual(['food', 'travel']);
   });
 
+  test('the amount field has min, max, step and required, and no error by default', async () => {
+    await render({ ...baseProps(), step: 1 });
+    const amount = document.body.querySelector('input[name=amount]');
+    expect(amount.getAttribute('min')).toBe('0.01');
+    expect(amount.getAttribute('max')).toBe('10000000');
+    expect(amount.getAttribute('step')).toBe('0.01');
+    expect(amount.required).toBe(true);
+    expect(document.body.querySelector('[role=alert]')).toBeNull();
+    expect(amount.getAttribute('aria-invalid')).toBeNull();
+  });
+
+  test('an amount error is shown and linked to the field', async () => {
+    await render({ ...baseProps(), step: 1, amountError: 'bad amount' });
+    const alert = document.body.querySelector('[role=alert]');
+    const amount = document.body.querySelector('input[name=amount]');
+    expect(alert.textContent).toBe('bad amount');
+    expect(amount.getAttribute('aria-invalid')).toBe('true');
+    expect(amount.getAttribute('aria-describedby')).toBe(alert.id);
+  });
+
+  test('submitting the form (Enter key) calls onSave once without a page reload', async () => {
+    const props = { ...baseProps(), step: 1 };
+    await render(props);
+    const form = document.body.querySelector('form');
+    const event = new Event('submit', { bubbles: true, cancelable: true });
+    await act(async () => { form.dispatchEvent(event); });
+    expect(props.onSave).toHaveBeenCalledTimes(1);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
   test('typing calls onChange and the save button calls onSave', async () => {
     const props = { ...baseProps(), step: 1 };
     await render(props);

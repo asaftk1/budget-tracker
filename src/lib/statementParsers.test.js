@@ -57,6 +57,7 @@ describe('parseIsracardSheet', () => {
           merchant: 'qzxv unknown shop',
           category: '',
           amount: 49.9,
+          amountAgorot: 4990,
           type: TX_TYPE.EXPENSE,
           source: 'isracard',
           notes: NOTE_FILL_CATEGORY,
@@ -105,6 +106,23 @@ describe('parseIsracardSheet', () => {
     expect(rows.map((r) => [r.rowIndex, r.transaction.merchant])).toEqual([[3, 'qzxv kept']]);
   });
 
+  test('zero and above-bound Isracard amounts are skipped with a warning', () => {
+    const onWarn = jest.fn();
+    const rows = parseIsracardSheet(
+      sheet([
+        ['03.04.25', 'qzxv zero', '', '', 0],
+        ['03.04.25', 'qzxv huge', '', '', 20000000],
+        ['03.04.25', 'qzxv kept', '', '', 0.1 + 0.2],
+      ]),
+      { onWarn }
+    );
+    expect(rows.map((r) => [r.transaction.merchant, r.transaction.amountAgorot])).toEqual([['qzxv kept', 30]]);
+    expect(onWarn.mock.calls.map(([code, d]) => [code, d.merchant])).toEqual([
+      ['invalid-amount', 'qzxv zero'],
+      ['invalid-amount', 'qzxv huge'],
+    ]);
+  });
+
   test('accepts 4-digit years and slashes in row dates', () => {
     const [row] = parseIsracardSheet(sheet([['03/04/2025', 'qzxv', '', '', 5]]));
     expect(row.transaction.originalDate).toBe('2025-04-03');
@@ -149,6 +167,7 @@ describe('parseMaxSheet', () => {
           merchant: 'Max Shop',
           category: 'food',
           amount: 77.5,
+          amountAgorot: 7750,
           type: TX_TYPE.EXPENSE,
           source: 'max',
         },
@@ -210,10 +229,37 @@ describe('parseMaxSheet', () => {
     });
   });
 
-  test('zero amount is currently typed as income (known quirk, characterised as is)', () => {
-    const [row] = parseMaxSheet([...header, line('2025-03-02', 'a', 'x', 0, '2025-04-10')]);
+  test('zero, sub-agora and above-bound amounts are skipped with a warning', () => {
+    const onWarn = jest.fn();
+    const rows = parseMaxSheet(
+      [
+        ...header,
+        line('2025-03-02', 'zero', 'x', 0, '2025-04-10'),
+        line('2025-03-02', 'tiny', 'x', 0.004, '2025-04-10'),
+        line('2025-03-02', 'huge', 'x', 10000000.01, '2025-04-10'),
+        line('2025-03-02', 'at the bound', 'x', 10000000, '2025-04-10'),
+      ],
+      { onWarn }
+    );
+    expect(rows.map((r) => r.transaction.merchant)).toEqual(['at the bound']);
+    expect(rows[0].transaction.amountAgorot).toBe(1_000_000_000);
+    expect(onWarn.mock.calls.map(([code, d]) => [code, d.merchant])).toEqual([
+      ['invalid-amount', 'zero'],
+      ['invalid-amount', 'tiny'],
+      ['invalid-amount', 'huge'],
+    ]);
+  });
+
+  test('floating-point noise in the statement is rounded away', () => {
+    const [row] = parseMaxSheet([...header, line('2025-03-02', 'a', 'x', 49.900000000000006, '2025-04-10')]);
+    expect(row.transaction.amountAgorot).toBe(4990);
+    expect(row.transaction.amount).toBe(49.9);
+  });
+
+  test('the stored amount is positive even for refunds', () => {
+    const [row] = parseMaxSheet([...header, line('2025-03-02', 'a', 'x', '(15.10)', '2025-04-10')]);
     expect(row.transaction.type).toBe(TX_TYPE.INCOME);
-    expect(row.transaction.amount).toBe(0);
+    expect(row.transaction.amountAgorot).toBe(1510);
   });
 
   test('the header rows are not parsed', () => {

@@ -135,7 +135,7 @@ describe('saveTransaction', () => {
     await expect(result.current.saveTransaction({ formData: form, type: 'T' })).resolves.toBe(true);
     expect(fs.addDoc.mock.calls.map(([c, data]) => [c.__col, data])).toEqual([
       ['categories', { name: 'Food', uid: 'u1' }],
-      ['transactions', { date: '2025-03-05', category: 'Food', amount: 12.5, type: 'T', uid: 'u1' }],
+      ['transactions', { date: '2025-03-05', category: 'Food', amount: 12.5, amountAgorot: 1250, type: 'T', uid: 'u1' }],
     ]);
   });
 
@@ -155,7 +155,7 @@ describe('saveTransaction', () => {
     expect(fs.addDoc).not.toHaveBeenCalled();
     expect(fs.updateDoc).toHaveBeenCalledWith(
       { __doc: 'transactions/t9' },
-      { date: '2025-03-05', category: 'Food', amount: 12.5, type: 'T', uid: 'u1' }
+      { date: '2025-03-05', category: 'Food', amount: 12.5, amountAgorot: 1250, type: 'T', uid: 'u1' }
     );
     expect(fs.setDoc).toHaveBeenCalledWith(
       { __doc: 'merchantCategories/u1_some%20shop' },
@@ -163,6 +163,31 @@ describe('saveTransaction', () => {
       { merge: true }
     );
   });
+
+  test('stores integer agorot and derives amount from it (no float drift)', async () => {
+    seed.categories = [{ id: 'c1', uid: 'u1', name: 'Food' }];
+    const { result } = await renderHook();
+    await result.current.saveTransaction({ formData: { ...form, amount: '19.99' }, type: 'T' });
+    const [, data] = fs.addDoc.mock.calls[0];
+    expect(data.amountAgorot).toBe(1999);
+    expect(data.amount).toBe(19.99);
+
+    fs.addDoc.mockClear();
+    await result.current.saveTransaction({ formData: { ...form, amount: 0.1 + 0.2 }, type: 'T' });
+    expect(fs.addDoc.mock.calls[0][1].amountAgorot).toBe(30);
+  });
+
+  test.each([['0'], ['-5'], [''], ['abc'], ['10000000.01'], [NaN]])(
+    'an invalid amount (%p) throws and writes nothing',
+    async (amount) => {
+      const { result } = await renderHook();
+      await expect(result.current.saveTransaction({ formData: { ...form, amount }, type: 'T' })).rejects.toThrow(
+        'Invalid amount'
+      );
+      expect(fs.addDoc).not.toHaveBeenCalled();
+      expect(fs.updateDoc).not.toHaveBeenCalled();
+    }
+  );
 
   test('editing a transaction without a merchant does not touch the merchant map', async () => {
     seed.categories = [{ id: 'c1', uid: 'u1', name: 'Food' }];

@@ -14,6 +14,14 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/he';
 import { parseIsracardSheet, parseMaxSheet } from '../lib/statementParsers';
 import { buildTransactionId } from '../lib/transactionId';
+import { amountError, formatMoney, MAX_AMOUNT_AGOROT } from '../lib/money';
+
+// Form messages for amountError() codes.
+const AMOUNT_MESSAGES = {
+  required: 'יש להזין סכום',
+  invalid: 'הסכום חייב להיות מספר גדול מאפס',
+  'too-large': `הסכום גבוה מדי (מקסימום ${formatMoney(MAX_AMOUNT_AGOROT, { fractionDigits: 0 })})`,
+};
 
 dayjs.locale('he');
 
@@ -29,6 +37,7 @@ export default function TransactionsPage() {
   const [step, setStep] = useState(0);
   const [type, setType] = useState('');
   const [formData, setFormData] = useState({ date: '', category: '', amount: '' });
+  const [amountErrorCode, setAmountErrorCode] = useState(null);
   const [searchType, setSearchType] = useState('');
   const [searchDate, setSearchDate] = useState('');
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -81,6 +90,9 @@ export default function TransactionsPage() {
         break;
       case 'max-no-posting-date':
         console.warn('⚠️ לא הצלחנו לחשב תאריך שיוך ל-MAX:', detail);
+        break;
+      case 'invalid-amount':
+        console.warn('Skipped a row with an invalid amount:', detail);
         break;
       default:
         break;
@@ -160,6 +172,7 @@ export default function TransactionsPage() {
   };
 
   const handleChange = (e) => {
+    if (e.target.name === 'amount') setAmountErrorCode(null);
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
@@ -167,6 +180,7 @@ export default function TransactionsPage() {
     setIsOpen(open);
     setStep(0);
     setEditTransaction(null);
+    setAmountErrorCode(null);
     if (!open) {
       setFormData({ date: '', category: '', amount: '' });
       setType('');
@@ -179,12 +193,18 @@ export default function TransactionsPage() {
   };
 
   const handleSave = async () => {
-    if (!formData.date || !formData.category || !formData.amount || !type) return;
+    const invalidAmount = amountError(formData.amount);
+    if (invalidAmount) {
+      setAmountErrorCode(invalidAmount);
+      return;
+    }
+    if (!formData.date || !formData.category || !type) return;
 
     const saved = await saveTransaction({ formData, type, editTransaction });
     if (!saved) return;
 
     setFormData({ date: '', category: '', amount: '' });
+    setAmountErrorCode(null);
     setType('');
     setEditTransaction(null);
     setStep(0);
@@ -205,6 +225,7 @@ export default function TransactionsPage() {
 
   const handleEdit = (tx) => {
     setEditTransaction(tx);
+    setAmountErrorCode(null);
     setFormData({
       date: tx.date,
       category: tx.category,
@@ -299,6 +320,7 @@ export default function TransactionsPage() {
             onOpenChange={handleTransactionDialogOpenChange}
             step={step}
             formData={formData}
+            amountError={amountErrorCode ? AMOUNT_MESSAGES[amountErrorCode] : ''}
             categories={categories}
             onChange={handleChange}
             onSelectType={handleSelectType}

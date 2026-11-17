@@ -57,7 +57,7 @@ update `.firebaserc`. Deploy with `firebase deploy --only hosting` after `npm ru
 
 | Collection | Fields |
 |---|---|
-| `transactions` | `uid`, `date` (`YYYY-MM-DD`), `type` (`הכנסה` / `הוצאה`), `amount` (number), `category`, `merchant`, `source` (`isracard`/`max`), `originalDate`, `chargeDate`, `notes` |
+| `transactions` | `uid`, `date` (`YYYY-MM-DD`), `type` (`הכנסה` / `הוצאה`), `amountAgorot` (positive integer, 1 ILS = 100 agorot, max 1,000,000,000), `amount` (ILS number derived from `amountAgorot`; older documents only have this field), `category`, `merchant`, `source` (`isracard`/`max`), `originalDate`, `chargeDate`, `notes` |
 | `categories` | `uid`, `name` |
 | `merchantCategories` | `uid`, `merchant`, `merchantNormalized`, `category` (doc id: `<uid>_<merchant>`) |
 
@@ -65,7 +65,7 @@ update `.firebaserc`. Deploy with `firebase deploy --only hosting` after `npm ru
 
 Transactions → "ייבוא קובץ אשראי", choose **Max** or **Isracard**, then upload the `.xlsx` statement
 exported from the card's website. Column positions are hard-coded for the current export formats.
-Re-importing the same file creates duplicates.
+Re-importing the same file overwrites the same documents (deterministic IDs). Rows with a zero or out-of-range amount are skipped.
 
 ## 🧠 Optional ML service
 

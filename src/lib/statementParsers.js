@@ -5,6 +5,7 @@
 // Hebrew strings below are statement keywords or user-facing values stored on the transaction.
 import { categorizeMerchant } from './categorize';
 import { cleanAmount } from './amounts';
+import { toAgorot, fromAgorot } from './money';
 import {
   getLastDayOfPreviousMonth,
   computeIsracardChargeDate,
@@ -44,6 +45,7 @@ export const extractBillingDate = (rows, regex) => {
 //   'isracard-missing-header'   no "<hebrew month> <year>" cell in the first rows
 //   'isracard-invalid-header'   detail: the header cell text
 //   'isracard-no-posting-date'  detail: the computed charge date
+//   'invalid-amount'            detail: { merchant, rawAmount }; the row is skipped
 export function parseIsracardSheet(json, { merchantCategoryMap, onWarn = noop } = {}) {
   let headerCell = null;
   for (let r = 0; r < Math.min(6, json.length) && !headerCell; r++) {
@@ -104,6 +106,13 @@ export function parseIsracardSheet(json, { merchantCategoryMap, onWarn = noop } 
 
     if (!merchant || amountNum === null) continue;
 
+    // The sign picks the type; the stored amount is always positive agorot.
+    const amountAgorot = toAgorot(Math.abs(amountNum));
+    if (amountAgorot === null) {
+      onWarn('invalid-amount', { merchant, rawAmount });
+      continue;
+    }
+
     const category = categorizeMerchant(merchant, merchantCategoryMap) || '';
 
     results.push({
@@ -114,7 +123,8 @@ export function parseIsracardSheet(json, { merchantCategoryMap, onWarn = noop } 
         chargeDate: chargeDateStr,
         merchant,
         category,
-        amount: Math.abs(amountNum),
+        amount: fromAgorot(amountAgorot),
+        amountAgorot,
         type: amountNum > 0 ? TX_TYPE.EXPENSE : TX_TYPE.INCOME,
         source: 'isracard',
         ...(category ? {} : { notes: NOTE_FILL_CATEGORY }),
@@ -127,6 +137,7 @@ export function parseIsracardSheet(json, { merchantCategoryMap, onWarn = noop } 
 
 // Warning codes passed to onWarn(code, detail):
 //   'max-no-posting-date'  detail: { rawChargeDate, parsedChargeDate, merchant }
+//   'invalid-amount'       detail: { merchant, rawAmount }; the row is skipped
 export function parseMaxSheet(json, { onWarn = noop } = {}) {
   // In a Max file the fourth row holds the column headers, so data starts at index 4.
   const dataRows = json.slice(4);
@@ -166,6 +177,13 @@ export function parseMaxSheet(json, { onWarn = noop } = {}) {
       continue;
     }
 
+    // The sign picks the type; the stored amount is always positive agorot.
+    const amountAgorot = toAgorot(Math.abs(amountNum));
+    if (amountAgorot === null) {
+      onWarn('invalid-amount', { merchant, rawAmount });
+      continue;
+    }
+
     results.push({
       rowIndex,
       transaction: {
@@ -174,7 +192,8 @@ export function parseMaxSheet(json, { onWarn = noop } = {}) {
         chargeDate: parsedChargeDate,
         merchant,
         category,
-        amount: Math.abs(amountNum),
+        amount: fromAgorot(amountAgorot),
+        amountAgorot,
         type: amountNum > 0 ? TX_TYPE.EXPENSE : TX_TYPE.INCOME,
         source: 'max',
       },

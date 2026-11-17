@@ -2,9 +2,12 @@ import { Button } from './ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { MAX_AMOUNT_AGOROT, fromAgorot } from '../lib/money';
 
 // Add/edit transaction dialog with its trigger button. It is controlled by the parent.
 //   step 0: choose income or expense; step 1: the details form.
+//   amountError: validation message for the amount field ('' when valid).
+//   onSave: called on submit (button click or Enter); the parent validates and saves.
 //   onChange: input change handler for the form fields (named date, category, amount).
 //   onSelectType(type): called with 'הכנסה' or 'הוצאה' from step 0.
 export default function TransactionDialog({
@@ -12,11 +15,17 @@ export default function TransactionDialog({
   onOpenChange,
   step,
   formData,
+  amountError = '',
   categories,
   onChange,
   onSelectType,
   onSave,
 }) {
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave();
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
@@ -33,7 +42,7 @@ export default function TransactionDialog({
             <Button className="bg-red-500 hover:bg-red-500 text-lg" onClick={() => onSelectType('הוצאה')}>💸 הוצאה</Button>
           </div>
         ) : (
-          <div className="space-y-3 mt-4">
+          <form className="space-y-3 mt-4" noValidate onSubmit={handleSubmit}>
             <div>
               <Label htmlFor="date">תאריך</Label>
               <Input type="date" name="date" value={formData.date} onChange={onChange} />
@@ -55,10 +64,25 @@ export default function TransactionDialog({
             </div>
             <div>
               <Label htmlFor="amount">סכום</Label>
-              <Input type="number" name="amount" value={formData.amount} onChange={onChange} />
+              <Input
+                type="number"
+                name="amount"
+                value={formData.amount}
+                onChange={onChange}
+                min="0.01"
+                max={fromAgorot(MAX_AMOUNT_AGOROT)}
+                step="0.01"
+                inputMode="decimal"
+                required
+                aria-invalid={amountError ? 'true' : undefined}
+                aria-describedby={amountError ? 'amount-error' : undefined}
+              />
+              {amountError && (
+                <p id="amount-error" role="alert" className="text-red-600 text-sm mt-1">{amountError}</p>
+              )}
             </div>
-            <Button className="w-full bg-green-600 text-white mt-2" onClick={onSave}>שמור</Button>
-          </div>
+            <Button type="submit" className="w-full bg-green-600 text-white mt-2">שמור</Button>
+          </form>
         )}
       </DialogContent>
     </Dialog>

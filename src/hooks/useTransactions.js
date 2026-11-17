@@ -18,6 +18,7 @@ import {
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { normalizeMerchantName } from '../lib/categorize';
 import { chunk, MAX_BATCH_SIZE } from '../lib/transactionId';
+import { toAgorot, fromAgorot } from '../lib/money';
 
 const normalizeCategory = (cat) => (cat || '').trim().toLowerCase();
 
@@ -129,14 +130,20 @@ export default function useTransactions() {
 
   // Create or update a transaction from the add/edit form. Adds the category to the user's
   // category list if it is new. Returns false when nobody is signed in (nothing is written).
+  // The caller validates the amount first; an invalid amount here throws.
   const saveTransaction = async ({ formData, type, editTransaction }) => {
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) return false;
 
+    const amountAgorot = toAgorot(formData.amount);
+    if (amountAgorot === null) throw new Error('Invalid amount');
+
     const transactionData = {
       ...formData,
-      amount: parseFloat(formData.amount),
+      // amount (shekels) is derived from amountAgorot for older readers; amountAgorot is the source of truth.
+      amount: fromAgorot(amountAgorot),
+      amountAgorot,
       type,
       uid: user.uid
     };

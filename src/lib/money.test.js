@@ -1,6 +1,7 @@
 import {
   MAX_AMOUNT_AGOROT,
   toAgorot,
+  amountError,
   getAgorot,
   fromAgorot,
   formatMoney,
@@ -81,6 +82,32 @@ describe('toAgorot', () => {
 
   test('tiny values in exponent notation are rejected as zero', () => {
     expect(toAgorot(1e-7)).toBeNull();
+  });
+});
+
+describe('amountError', () => {
+  test('valid input has no error', () => {
+    expect(amountError('12.5')).toBeNull();
+    expect(amountError(0.01)).toBeNull();
+  });
+
+  test('empty input is required', () => {
+    expect(amountError('')).toBe('required');
+    expect(amountError('   ')).toBe('required');
+    expect(amountError(null)).toBe('required');
+    expect(amountError(undefined)).toBe('required');
+  });
+
+  test('values above the bound are too-large', () => {
+    expect(amountError('10000000.01')).toBe('too-large');
+    expect(amountError(1e12)).toBe('too-large');
+    expect(amountError(1e21)).toBe('too-large');
+  });
+
+  test('everything else is invalid', () => {
+    for (const v of ['0', 0, '-5', -5, 'abc', NaN, Infinity, '1e3', '1,000', {}, true, '0.001']) {
+      expect(amountError(v)).toBe('invalid');
+    }
   });
 });
 

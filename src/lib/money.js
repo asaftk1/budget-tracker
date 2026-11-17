@@ -39,6 +39,22 @@ export function toAgorot(input) {
   return agorot;
 }
 
+// Why an input was rejected by toAgorot: 'required' (empty), 'too-large' (above the upper
+// bound) or 'invalid' (anything else). Returns null when the input is valid.
+export function amountError(input) {
+  if (toAgorot(input) !== null) return null;
+  if (input === null || input === undefined || (typeof input === 'string' && input.trim() === '')) {
+    return 'required';
+  }
+
+  let n = NaN;
+  if (typeof input === 'number') n = input;
+  else if (typeof input === 'string' && PLAIN_DECIMAL.test(input.trim())) n = Number(input.trim());
+
+  if (Number.isFinite(n) && n > 0 && shekelsToAgorot(n) > MAX_AMOUNT_AGOROT) return 'too-large';
+  return 'invalid';
+}
+
 // Read the amount of a stored transaction in integer agorot.
 // New documents carry amountAgorot; older documents only have amount (in shekels).
 // Unusable values count as 0 so one bad document cannot break a total.
