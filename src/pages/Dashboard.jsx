@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 import { getAuth } from 'firebase/auth';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
 import Suggestions from '../components/Suggestions';
+import dayjs from 'dayjs';
 
 export default function Dashboard() {
     const [transactions, setTransactions] = useState([]);
@@ -49,8 +50,7 @@ export default function Dashboard() {
     const totalExpenses = pieData.reduce((sum, item) => sum + item.value, 0);
 
     const chartData = Array.from({ length: 6 }, (_, i) => {
-        const date = new Date();
-        date.setMonth(date.getMonth() - i);
+        const date = dayjs().startOf('month').subtract(i, 'month').toDate();
         const month = date.toLocaleString('default', { month: 'short' });
 
         const income = transactions

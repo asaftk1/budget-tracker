@@ -35,7 +35,8 @@ export default function AnalyticsPage() {
     return filtered
       .filter(tx => tx.type === 'הוצאה')
       .reduce((acc, tx) => {
-        acc[tx.category] = (acc[tx.category] || 0) + Number(tx.amount || 0);
+        const cat = tx.category || 'לא מסווג';
+        acc[cat] = (acc[cat] || 0) + Number(tx.amount || 0);
         return acc;
       }, {});
   }, [filtered]);

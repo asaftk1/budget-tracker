@@ -92,6 +92,7 @@ export default function useSuggestions(transactions = []) {
     const p90 = amounts[Math.floor(0.9 * amounts.length)] || 0;
     const bigOnes = expenses
       .filter(e => Number(e.amount) >= p90 && Number(e.amount) >= 500)
+      .sort((a, b) => Number(b.amount) - Number(a.amount))
       .map(e => ({
         kind: "big_one",
         score: Math.min(100, Math.round(Number(e.amount) / 20)),

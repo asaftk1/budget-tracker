@@ -647,7 +647,15 @@ export default function TransactionsPage() {
             </DialogContent>
           </Dialog>
 
-          <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); setStep(0); setEditTransaction(null); }}>
+          <Dialog open={isOpen} onOpenChange={(open) => {
+            setIsOpen(open);
+            setStep(0);
+            setEditTransaction(null);
+            if (!open) {
+              setFormData({ date: '', category: '', amount: '' });
+              setType('');
+            }
+          }}>
             <DialogTrigger asChild>
               <Button className="bg-green-500 text-white">➕ הוסף פעולה</Button>
             </DialogTrigger>
