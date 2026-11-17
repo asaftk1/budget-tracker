@@ -19,8 +19,7 @@ import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { normalizeMerchantName } from '../lib/categorize';
 import { chunk, MAX_BATCH_SIZE } from '../lib/transactionId';
 import { toAgorot, fromAgorot } from '../lib/money';
-
-const normalizeCategory = (cat) => (cat || '').trim().toLowerCase();
+import { cleanCategoryName, hasCategory, resolveCategory } from '../lib/categories';
 
 // Map<normalizedMerchant, category> of the user's saved merchant categories.
 export const loadMerchantCategoryMap = async (uid) => {
@@ -141,6 +140,8 @@ export default function useTransactions() {
 
     const transactionData = {
       ...formData,
+      // Store the spelling of an existing category if there is one (case-insensitive match).
+      category: resolveCategory(categories, formData.category),
       // amount (shekels) is derived from amountAgorot for older readers; amountAgorot is the source of truth.
       amount: fromAgorot(amountAgorot),
       amountAgorot,
@@ -148,12 +149,9 @@ export default function useTransactions() {
       uid: user.uid
     };
 
-    const normalizedCategories = categories.map(normalizeCategory);
-    const currentCat = normalizeCategory(formData.category);
-
-    if (!normalizedCategories.includes(currentCat)) {
+    if (!hasCategory(categories, formData.category)) {
       await addDoc(collection(db, 'categories'), {
-        name: formData.category.trim(),
+        name: cleanCategoryName(formData.category),
         uid: user.uid
       });
     }

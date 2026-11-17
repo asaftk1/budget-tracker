@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { getAuth } from 'firebase/auth';
 import useTransactions, { loadMerchantCategoryMap, commitTransactions } from '../hooks/useTransactions';
 import { Button } from '../components/ui/button';
@@ -14,6 +14,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/he';
 import { parseIsracardSheet, parseMaxSheet } from '../lib/statementParsers';
 import { buildTransactionId } from '../lib/transactionId';
+import { dedupeCategories } from '../lib/categories';
 import { amountError, formatMoney, getAgorot, fromAgorot, MAX_AMOUNT_AGOROT } from '../lib/money';
 
 // Form messages for amountError() codes.
@@ -33,6 +34,8 @@ export default function TransactionsPage() {
     deleteTransaction,
     updateTransactionCategory,
   } = useTransactions();
+  // One entry per category in the suggestion lists (existing duplicates are not deleted).
+  const categoryOptions = useMemo(() => dedupeCategories(categories), [categories]);
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [type, setType] = useState('');
@@ -296,8 +299,8 @@ export default function TransactionsPage() {
                     onChange={handleChange}
                   />
                   <datalist id="categories">
-                    {categories.map((cat, index) => (
-                      <option key={index} value={cat} />
+                    {categoryOptions.map((cat) => (
+                      <option key={cat} value={cat} />
                     ))}
                   </datalist>
                   <Button onClick={() => setSearchType('')}>🔙 חזור</Button>
@@ -321,7 +324,7 @@ export default function TransactionsPage() {
             step={step}
             formData={formData}
             amountError={amountErrorCode ? AMOUNT_MESSAGES[amountErrorCode] : ''}
-            categories={categories}
+            categories={categoryOptions}
             onChange={handleChange}
             onSelectType={handleSelectType}
             onSave={handleSave}

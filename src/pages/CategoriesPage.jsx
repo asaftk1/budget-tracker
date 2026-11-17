@@ -6,6 +6,7 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { getDocs } from 'firebase/firestore';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { cleanCategoryName, hasCategory } from '../lib/categories';
 
 
 export default function CategoriesPage() {
@@ -24,33 +25,19 @@ export default function CategoriesPage() {
   }, [user]);
 
   const addCategory = async () => {
-  if (!newCategory.trim() || !user) return;
+    const name = cleanCategoryName(newCategory);
+    if (!name || !user) return;
 
-  const normalizedNew = newCategory.trim().toLowerCase();
+    // Read the user's categories and compare case-insensitively; Firestore cannot do that itself.
+    const snapshot = await getDocs(query(collection(db, 'categories'), where('uid', '==', user.uid)));
+    if (hasCategory(snapshot.docs.map((d) => d.data().name), name)) {
+      alert('⚠️ הקטגוריה כבר קיימת');
+      return;
+    }
 
-  // בקשת בדיקה מול פיירבייס אם קטגוריה כזו כבר קיימת
-  const q = query(
-    collection(db, 'categories'),
-    where('uid', '==', user.uid),
-    where('name', '==', newCategory.trim())
-  );
-
-  const snapshot = await getDocs(q);
-
-  if (!snapshot.empty) {
-    alert('⚠️ הקטגוריה כבר קיימת');
-    return;
-  }
-
-  // אם לא קיימת – הוספה
-  await addDoc(collection(db, 'categories'), {
-    name: newCategory.trim(),
-    uid: user.uid,
-  });
-  setNewCategory('');
-};
-
-
+    await addDoc(collection(db, 'categories'), { name, uid: user.uid });
+    setNewCategory('');
+  };
 
   const handleConfirmDelete = async () => {
     const id = pendingDelete?.id;

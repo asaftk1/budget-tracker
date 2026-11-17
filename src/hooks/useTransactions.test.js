@@ -146,6 +146,21 @@ describe('saveTransaction', () => {
     expect(fs.addDoc.mock.calls.map(([c]) => c.__col)).toEqual(['transactions']);
   });
 
+  test('a category typed in another case reuses the existing spelling and creates nothing new', async () => {
+    seed.categories = [{ id: 'c1', uid: 'u1', name: 'Food' }];
+    const { result } = await renderHook();
+    await result.current.saveTransaction({ formData: { ...form, category: '  fOOD ' }, type: 'T' });
+    expect(fs.addDoc.mock.calls.map(([c]) => c.__col)).toEqual(['transactions']);
+    expect(fs.addDoc.mock.calls[0][1].category).toBe('Food');
+  });
+
+  test('a new category is stored with a cleaned name on both the category and the transaction', async () => {
+    const { result } = await renderHook();
+    await result.current.saveTransaction({ formData: { ...form, category: '  New   Cat ' }, type: 'T' });
+    expect(fs.addDoc.mock.calls[0]).toEqual([{ __col: 'categories' }, { name: 'New Cat', uid: 'u1' }]);
+    expect(fs.addDoc.mock.calls[1][1].category).toBe('New Cat');
+  });
+
   test('editing updates the document and remembers the merchant category', async () => {
     seed.categories = [{ id: 'c1', uid: 'u1', name: 'Food' }];
     const { result } = await renderHook();
