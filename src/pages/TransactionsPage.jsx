@@ -20,6 +20,7 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from 
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Trash2 } from 'lucide-react';
+import ConfirmDialog from '../components/ConfirmDialog';
 import * as XLSX from 'xlsx';
 import dayjs from 'dayjs';
 import 'dayjs/locale/he';
@@ -43,6 +44,7 @@ export default function TransactionsPage() {
   const [missingCatOpen, setMissingCatOpen] = useState(false);
   const [missingCatTx, setMissingCatTx] = useState(null);
   const [missingCatValue, setMissingCatValue] = useState('');
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
   const normalizeCategory = (cat) => (cat || '').trim().toLowerCase();
   const normalizeMerchantName = (name) => (name || '').trim().toLowerCase();
@@ -550,8 +552,16 @@ export default function TransactionsPage() {
     setIsOpen(false);
   };
 
-  const handleDelete = async (id) => {
-    await deleteDoc(doc(db, 'transactions', id));
+  const handleConfirmDelete = async () => {
+    const id = pendingDeleteId;
+    setPendingDeleteId(null);
+    if (!id) return;
+    try {
+      await deleteDoc(doc(db, 'transactions', id));
+    } catch (e) {
+      console.error('Failed to delete transaction', e);
+      alert('מחיקת הפעולה נכשלה');
+    }
   };
 
   const handleEdit = (tx) => {
@@ -763,7 +773,7 @@ export default function TransactionsPage() {
                   <div className={`text-sm font-bold ${tx.type === 'הכנסה' ? 'text-green-600' : 'text-red-500'}`}>{tx.type}</div>
                   <div className="flex justify-end gap-2 mt-2">
                     <button onClick={() => handleEdit(tx)} className="text-xs" aria-label="ערוך פעולה">✏️</button>
-                    <button onClick={() => handleDelete(tx.id)} aria-label="מחק פעולה">
+                    <button onClick={() => setPendingDeleteId(tx.id)} aria-label="מחק פעולה">
                       <Trash2 className="text-red-500 hover:text-red-700" size={14} />
                     </button>
                   </div>
@@ -799,7 +809,7 @@ export default function TransactionsPage() {
                       <td className="px-2 py-1">
                         <div className="flex justify-end items-center gap-2">
                           <button onClick={() => handleEdit(tx)} className="text-xs" aria-label="ערוך פעולה">✏️</button>
-                          <button onClick={() => handleDelete(tx.id)} aria-label="מחק פעולה">
+                          <button onClick={() => setPendingDeleteId(tx.id)} aria-label="מחק פעולה">
                             <Trash2 className="text-red-500 hover:text-red-700" size={14} />
                           </button>
                         </div>
@@ -812,6 +822,14 @@ export default function TransactionsPage() {
           </div>
         ))}
       </div>
+
+      {pendingDeleteId && (
+        <ConfirmDialog
+          message="למחוק את הפעולה?"
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setPendingDeleteId(null)}
+        />
+      )}
 
       <Dialog open={missingCatOpen} onOpenChange={setMissingCatOpen}>
         <DialogContent className="sm:max-w-[380px]">

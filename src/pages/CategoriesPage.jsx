@@ -5,11 +5,13 @@ import { getAuth } from 'firebase/auth';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { getDocs } from 'firebase/firestore';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState([]);
   const [newCategory, setNewCategory] = useState('');
+  const [pendingDelete, setPendingDelete] = useState(null);
   const user = getAuth().currentUser;
 
   useEffect(() => {
@@ -50,8 +52,16 @@ export default function CategoriesPage() {
 
 
 
-  const handleDeleteCategory = async (id) => {
-    await deleteDoc(doc(db, 'categories', id));
+  const handleConfirmDelete = async () => {
+    const id = pendingDelete?.id;
+    setPendingDelete(null);
+    if (!id) return;
+    try {
+      await deleteDoc(doc(db, 'categories', id));
+    } catch (e) {
+      console.error('Failed to delete category', e);
+      alert('מחיקת הקטגוריה נכשלה');
+    }
   };
 
   return (
@@ -63,7 +73,7 @@ export default function CategoriesPage() {
             <span>📌 {cat.name}</span>
             <button
               aria-label={`מחק קטגוריה ${cat.name}`}
-              onClick={() => handleDeleteCategory(cat.id)}
+              onClick={() => setPendingDelete(cat)}
               className="text-red-500 hover:text-red-700"
             >
               🗑️
@@ -79,6 +89,13 @@ export default function CategoriesPage() {
         />
         <Button onClick={addCategory}>➕ הוסף</Button>
       </div>
+      {pendingDelete && (
+        <ConfirmDialog
+          message={`למחוק את הקטגוריה "${pendingDelete.name}"?`}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
     </div>
   );
 }
